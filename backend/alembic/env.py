@@ -1,5 +1,12 @@
 import asyncio
+import sys
 from logging.config import fileConfig
+from pathlib import Path
+
+# Ensure backend root is on sys.path for app module discovery
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 from alembic import context
 from sqlalchemy import pool

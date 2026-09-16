@@ -7,7 +7,8 @@
   <meta name="theme-color" content="#2563eb">
   <title>{% block title %}{{ page_title | default("ChildTrack") }}{% endblock %} — ChildTrack</title>
 
-  {# Design Token Stylesheet #}
+  {# Design Token Stylesheet & Favicon #}
+  <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
   <link rel="stylesheet" href="/static/css/styles.css">
   {% block extra_head %}{% endblock %}
 </head>

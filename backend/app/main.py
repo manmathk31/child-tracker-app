@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import request_id_ctx, setup_logging
 from app.database.session import close_db_engine, get_engine
-from app.routers import health, pages
+from app.routers import auth, health, pages
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -86,7 +86,13 @@ def create_application() -> FastAPI:
 
     # 5. Register Routers
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(pages.router)
+
+    # 6. Favicon handler to avoid 404 noise
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon() -> Response:
+        return Response(status_code=204)
 
     return app
 

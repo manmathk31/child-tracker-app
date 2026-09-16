@@ -4,8 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, MetaData, String, func
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import Boolean, DateTime, MetaData, String, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 # Explicit naming conventions ensure predictable constraint names across SQLite & PostgreSQL
@@ -33,7 +32,7 @@ class UUIDPrimaryKeyMixin:
     """Provides a UUID primary key for entity tables."""
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True).with_variant(String(36), "sqlite"),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
         sort_order=-100,

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="description" content="Sign in to ChildTrack Indoor Child-Safety Monitoring Platform">
+  <meta name="theme-color" content="#2563eb">
+  <title>Sign In — ChildTrack</title>
+
+  {# Design Token Stylesheet & Favicon #}
+  <link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg">
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--color-bg); padding: var(--space-4);">
+
+  <main style="width: 100%; max-width: 400px;">
+    {# Brand Header #}
+    <div style="text-align: center; margin-bottom: var(--space-6);">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background-color: var(--color-primary); color: var(--color-text-inverse); border-radius: var(--radius-md); font-weight: var(--font-weight-bold); font-size: var(--font-size-xl); margin-bottom: var(--space-3); box-shadow: var(--shadow-sm);">
+        CT
+      </div>
+      <h1 style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+        ChildTrack
+      </h1>
+      <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-1);">
+        Indoor Child Safety &amp; Monitoring Platform
+      </p>
+    </div>
+
+    {# Login Card #}
+    <div class="card" style="box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: var(--space-6);">
+      <h2 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-4); color: var(--color-text-primary);">
+        Sign In to Your Account
+      </h2>
+
+      {% if error_message %}
+        <div style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--font-size-sm); margin-bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-2);" role="alert" id="login-error-alert">
+          <svg style="width: 18px; height: 18px; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <span>{{ error_message }}</span>
+        </div>
+      {% endif %}
+
+      <form action="/login" method="POST" id="login-form">
+        <div style="margin-bottom: var(--space-4);">
+          <label for="email" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Email Address
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            value="{{ email_value | default('') }}"
+            required
+            autocomplete="email"
+            autofocus
+            placeholder="e.g. teacher@school.edu"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit; transition: border-color 0.15s ease;"
+          />
+        </div>
+
+        <div style="margin-bottom: var(--space-6);">
+          <label for="password" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Password
+          </label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            autocomplete="current-password"
+            placeholder="••••••••"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit; transition: border-color 0.15s ease;"
+          />
+        </div>
+
+        <button
+          type="submit"
+          id="btn-login-submit"
+          class="btn btn-primary"
+          style="width: 100%; font-size: var(--font-size-base); font-weight: var(--font-weight-semibold);"
+        >
+          Sign In
+        </button>
+      </form>
+    </div>
+
+    {# Security Notice #}
+    <div style="text-align: center; font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: var(--space-4);">
+      Restricted to authorized school personnel. Access is logged.
+    </div>
+  </main>
+
+</body>
+</html>
