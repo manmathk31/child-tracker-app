@@ -44,4 +44,8 @@ async def dashboard_page(request: Request, db: AsyncSession = Depends(get_db)) -
         "zones": [],
         "active_alerts": [],
     }
-    return templates.TemplateResponse("dashboard/index.html", context)
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard/index.html",
+        context=context,
+    )
