@@ -1,0 +1,19 @@
+{# Reusable Empty State Component #}
+<div class="empty-state" data-testid="empty-state">
+  <div class="empty-state-icon" aria-hidden="true">
+    {% if empty_icon %}
+      {{ empty_icon | safe }}
+    {% else %}
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+      </svg>
+    {% endif %}
+  </div>
+  <h3 class="empty-state-title">{{ empty_title | default("No records found") }}</h3>
+  <p class="empty-state-description">{{ empty_message | default("There is currently no data to display here.") }}</p>
+  {% if empty_action_url and empty_action_label %}
+    <a href="{{ empty_action_url }}" class="btn btn-primary" id="{{ empty_action_id | default('empty-state-action-btn') }}">
+      {{ empty_action_label }}
+    </a>
+  {% endif %}
+</div>
