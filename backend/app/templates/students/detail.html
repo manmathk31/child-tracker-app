@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Student: {{ student.full_name }}{% endblock %}
+{% block page_title %}{{ student.full_name }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div style="margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+    <a href="/students" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+      &larr; Back to Students Roster
+    </a>
+    {% if current_user and current_user.role.value == 'admin' %}
+      <a href="/students/{{ student.id }}/edit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px;">
+        Edit Student
+      </a>
+    {% endif %}
+  </div>
+
+  {# Student Profile Overview #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div style="display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); flex-wrap: wrap;">
+      <div style="width: 64px; height: 64px; border-radius: var(--radius-full); background: var(--color-primary-light); color: var(--color-primary); font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); display: flex; align-items: center; justify-content: center;">
+        {{ student.full_name[:2].upper() }}
+      </div>
+      <div>
+        <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+          {{ student.full_name }}
+        </h2>
+        <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+          Code: <strong>{{ student.student_code }}</strong> • Class: <strong>{{ student.class_name }}</strong> • Age: <strong>{{ student.age }} years</strong>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle);">
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Tracking Status</div>
+        <div style="margin-top: 4px;">
+          <span class="status-pill {% if student.device %}online{% else %}attention{% endif %}">
+            <span class="status-dot"></span>
+            <span>{{ "Wearable Assigned" if student.device else "Unassigned" }}</span>
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Assigned Hardware Tag</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin-top: 4px;">
+          {% if student.device %}
+            <span style="font-family: monospace;">{{ student.device.device_code }}</span> (🔋 {{ student.device.battery_percent }}%)
+          {% else %}
+            <span style="color: var(--color-text-muted);">None</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Current Zone</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); margin-top: 4px;">
+          Unknown (Live scan pending)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Allowed Zones Permissions #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header">
+      <h3 class="card-title">Permitted Safe Zones</h3>
+      <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+        {{ student.allowed_zones|length }} zone{{ "s" if student.allowed_zones|length != 1 else "" }}
+      </span>
+    </div>
+
+    {% if student.allowed_zones and student.allowed_zones|length > 0 %}
+      <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+        {% for z in student.allowed_zones %}
+          <div style="display: inline-flex; align-items: center; gap: 6px; padding: var(--space-1) var(--space-3); background: var(--color-primary-light); color: var(--color-primary); border-radius: var(--radius-full); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">
+            <span>✓</span>
+            <a href="/zones/{{ z.id }}" style="color: inherit; text-decoration: none;">{{ z.name }}</a>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {% with empty_title="No allowed zones assigned",
+              empty_message="Without permitted safe zones, any detected location will automatically raise a restricted-zone warning.",
+              empty_action_url="/students/" + student.id|string + "/edit",
+              empty_action_label="Assign Allowed Zones" %}
+        {% include "components/empty_state.html" %}
+      {% endwith %}
+    {% endif %}
+  </div>
+
+  {# Location Audit History (Phase 5 Shell) #}
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Recent Location History</h3>
+    </div>
+    {% with empty_title="No location audit records yet",
+            empty_message="Location breadcrumbs will appear here automatically once live ESP32 telemetry ingestion commences in Phase 5.",
+            empty_action_url=None,
+            empty_action_label=None %}
+      {% include "components/empty_state.html" %}
+    {% endwith %}
+  </div>
+</div>
+{% endblock %}

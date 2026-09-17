@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Edit Wearable: " + device.device_code if device else "Register Wearable" }}{% endblock %}
+{% block page_title %}{{ "Edit Wearable" if device else "Register Wearable" }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+  <div style="margin-bottom: var(--space-4);">
+    <a href="/devices" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+      &larr; Back to Wearables
+    </a>
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: var(--space-6);">
+    <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-4); color: var(--color-text-primary);">
+      {{ "Edit Wearable Details" if device else "Enroll ESP32 Hardware Tag" }}
+    </h2>
+
+    {% if error_message %}
+      <div style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--font-size-sm); margin-bottom: var(--space-4);" role="alert">
+        {{ error_message }}
+      </div>
+    {% endif %}
+
+    <form action="{{ '/devices/' + device.id|string + '/edit' if device else '/devices/new' }}" method="POST" id="device-form">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="device_code" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Device Tag Code <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="device_code"
+            name="device_code"
+            value="{{ device.device_code if device else (form_data.device_code if form_data else '') }}"
+            required
+            autofocus
+            placeholder="e.g. WB-001"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+
+        <div>
+          <label for="mac_address" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            MAC Address <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="mac_address"
+            name="mac_address"
+            value="{{ device.mac_address if device else (form_data.mac_address if form_data else '') }}"
+            required
+            placeholder="e.g. AA:BB:CC:DD:EE:01"
+            pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
+            title="Format: XX:XX:XX:XX:XX:XX"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: monospace;"
+          />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-6);">
+        <div>
+          <label for="battery_percent" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Initial Battery Level (%)
+          </label>
+          <input
+            type="number"
+            id="battery_percent"
+            name="battery_percent"
+            min="0"
+            max="100"
+            value="{{ device.battery_percent if device else (form_data.battery_percent if form_data else 100) }}"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+
+        <div>
+          <label for="firmware_version" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Firmware Version
+          </label>
+          <input
+            type="text"
+            id="firmware_version"
+            name="firmware_version"
+            value="{{ device.firmware_version if device and device.firmware_version else (form_data.firmware_version if form_data else 'v1.0.0') }}"
+            placeholder="e.g. v1.0.0"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+      </div>
+
+      <div style="display: flex; gap: var(--space-3); justify-content: flex-end;">
+        <a href="/devices" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-device">
+          {{ "Update Wearable" if device else "Register Wearable" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,5 +1,19 @@
 """Business logic and domain service layer package."""
 
-from app.services import auth_service
+from app.services import (
+    access_point_service,
+    auth_service,
+    device_service,
+    settings_service,
+    student_service,
+    zone_service,
+)
 
-__all__ = ["auth_service"]
+__all__ = [
+    "auth_service",
+    "zone_service",
+    "access_point_service",
+    "device_service",
+    "student_service",
+    "settings_service",
+]

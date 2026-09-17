@@ -1,7 +1,28 @@
 """Pydantic schemas package."""
 
+from app.schemas.access_point import (
+    AccessPointCreate,
+    AccessPointResponse,
+    AccessPointUpdate,
+)
 from app.schemas.common import HealthResponse
-from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserResponse, UserRole, UserUpdate
+from app.schemas.device import DeviceCreate, DeviceResponse, DeviceUpdate
+from app.schemas.settings import (
+    AlertSettingsResponse,
+    AlertSettingsUpdate,
+    SchoolSettingsResponse,
+    SchoolSettingsUpdate,
+)
+from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
+from app.schemas.user import (
+    LoginRequest,
+    TokenResponse,
+    UserCreate,
+    UserResponse,
+    UserRole,
+    UserUpdate,
+)
+from app.schemas.zone import ZoneCreate, ZoneResponse, ZoneUpdate
 
 __all__ = [
     "HealthResponse",
@@ -11,4 +32,20 @@ __all__ = [
     "UserResponse",
     "LoginRequest",
     "TokenResponse",
+    "ZoneCreate",
+    "ZoneUpdate",
+    "ZoneResponse",
+    "AccessPointCreate",
+    "AccessPointUpdate",
+    "AccessPointResponse",
+    "DeviceCreate",
+    "DeviceUpdate",
+    "DeviceResponse",
+    "StudentCreate",
+    "StudentUpdate",
+    "StudentResponse",
+    "SchoolSettingsUpdate",
+    "SchoolSettingsResponse",
+    "AlertSettingsUpdate",
+    "AlertSettingsResponse",
 ]

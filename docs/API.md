@@ -132,3 +132,46 @@ Clears the session cookie.
 ### 4.3 Live Safety Dashboard
 `GET /dashboard` — Renders the responsive dashboard shell displaying current occupancy metrics and safety feeds. Unauthenticated visitors are automatically redirected to `/login`.
 
+---
+
+## 5. Phase 2 — Configuration & Entity Management Endpoints
+
+### 5.1 Zones
+- `GET /api/v1/zones` — List all active school zones with AP counts.
+- `POST /api/v1/zones` — Create a new school zone (Admin only).
+- `GET /api/v1/zones/{id}` — Retrieve zone details and associated access points.
+- `PUT /api/v1/zones/{id}` — Update zone name/metadata (Admin only).
+- `DELETE /api/v1/zones/{id}` — Soft-delete zone (Admin only).
+- Web Views: `GET /zones`, `GET /zones/new`, `POST /zones/new`, `GET /zones/{id}`, `GET /zones/{id}/edit`, `POST /zones/{id}/edit`, `POST /zones/{id}/delete`.
+
+### 5.2 Access Points
+- `GET /api/v1/access-points` — List all registered Wi-Fi APs with physical zone mapping.
+- `POST /api/v1/access-points` — Register an AP with BSSID and assigned zone (Admin only).
+- `GET /api/v1/access-points/{id}` — Retrieve AP details.
+- `PUT /api/v1/access-points/{id}` — Update AP label, channel, or zone mapping (Admin only).
+- `DELETE /api/v1/access-points/{id}` — Soft-delete AP (Admin only).
+- Web Views: `GET /access-points`, `GET /access-points/new`, `POST /access-points/new`, `GET /access-points/{id}/edit`, `POST /access-points/{id}/edit`, `POST /access-points/{id}/delete`.
+
+### 5.3 ESP32 Wearable Devices
+- `GET /api/v1/devices` — List all wearable hardware tags, battery levels, and assigned students.
+- `POST /api/v1/devices` — Register a wearable device by MAC and engraved device code (Admin only).
+- `GET /api/v1/devices/{id}` — Retrieve wearable telemetry and assignment details.
+- `PUT /api/v1/devices/{id}` — Update wearable metadata or manual student pairing (Admin only).
+- `DELETE /api/v1/devices/{id}` — Soft-delete wearable and clear student pairing (Admin only).
+- Web Views: `GET /devices`, `GET /devices/new`, `POST /devices/new`, `GET /devices/{id}/edit`, `POST /devices/{id}/edit`, `POST /devices/{id}/delete`.
+
+### 5.4 Students
+- `GET /api/v1/students` — List enrolled students, assigned wearables, and permitted zones (supports `?class_name=` filter).
+- `POST /api/v1/students` — Enroll a student, assign wearable tag, and whitelist permitted zones (Admin only).
+- `GET /api/v1/students/{id}` — Retrieve student profile, live tracking status, and zone whitelist.
+- `PUT /api/v1/students/{id}` — Modify student profile, assigned device, or allowed zones (Admin only).
+- `DELETE /api/v1/students/{id}` — Soft-delete student and release assigned wearable (Admin only).
+- Web Views: `GET /students`, `GET /students/new`, `POST /students/new`, `GET /students/{id}`, `GET /students/{id}/edit`, `POST /students/{id}/edit`, `POST /students/{id}/delete`.
+
+### 5.5 System & Alert Settings
+- `GET /api/v1/settings/school` — Retrieve school organization name, campus, and timezone.
+- `PUT /api/v1/settings/school` — Update organization settings (Admin only).
+- `GET /api/v1/settings/alerts` — Retrieve safety thresholds (offline timeout, low battery, confidence cutoff).
+- `PUT /api/v1/settings/alerts` — Update safety alert thresholds and enable/disable SOS/fall alerts (Admin only).
+- Web Views: `GET /settings`, `POST /settings/school`, `POST /settings/alerts` (Admin only).
+

@@ -13,7 +13,16 @@ from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import request_id_ctx, setup_logging
 from app.database.session import close_db_engine, get_engine
-from app.routers import auth, health, pages
+from app.routers import (
+    access_points,
+    auth,
+    devices,
+    health,
+    pages,
+    settings as settings_router,
+    students,
+    zones,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -88,6 +97,12 @@ def create_application() -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(pages.router)
+    app.include_router(zones.router)
+    app.include_router(access_points.router)
+    app.include_router(devices.router)
+    app.include_router(students.router)
+    app.include_router(settings_router.router)
+
 
     # 6. Favicon handler to avoid 404 noise
     @app.get("/favicon.ico", include_in_schema=False)

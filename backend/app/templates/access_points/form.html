@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Edit Access Point: " + ap.name if ap else "Register Access Point" }}{% endblock %}
+{% block page_title %}{{ "Edit Access Point" if ap else "Register Access Point" }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+  <div style="margin-bottom: var(--space-4);">
+    <a href="/access-points" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+      &larr; Back to Access Points
+    </a>
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: var(--space-6);">
+    <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-4); color: var(--color-text-primary);">
+      {{ "Edit Access Point" if ap else "Register Wi-Fi Access Point" }}
+    </h2>
+
+    {% if error_message %}
+      <div style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--font-size-sm); margin-bottom: var(--space-4);" role="alert">
+        {{ error_message }}
+      </div>
+    {% endif %}
+
+    <form action="{{ '/access-points/' + ap.id|string + '/edit' if ap else '/access-points/new' }}" method="POST" id="ap-form">
+      <div style="margin-bottom: var(--space-4);">
+        <label for="name" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+          Access Point Label <span style="color: var(--color-status-red);">*</span>
+        </label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value="{{ ap.name if ap else (form_data.name if form_data else '') }}"
+          required
+          autofocus
+          placeholder="e.g. AP-Classroom3A-North, AP-Cafeteria-1"
+          style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+        />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="bssid" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            BSSID (MAC Address) <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="bssid"
+            name="bssid"
+            value="{{ ap.bssid if ap else (form_data.bssid if form_data else '') }}"
+            required
+            placeholder="e.g. 24:F5:A2:33:44:01"
+            pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
+            title="Format: XX:XX:XX:XX:XX:XX"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: monospace;"
+          />
+        </div>
+
+        <div>
+          <label for="channel" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Wi-Fi Channel
+          </label>
+          <input
+            type="number"
+            id="channel"
+            name="channel"
+            min="1"
+            max="165"
+            value="{{ ap.channel if ap and ap.channel else (form_data.channel if form_data else '') }}"
+            placeholder="1, 6, 11, etc."
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+      </div>
+
+      <div style="margin-bottom: var(--space-6);">
+        <label for="zone_id" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+          Physical Zone Assignment
+        </label>
+        <select
+          id="zone_id"
+          name="zone_id"
+          style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit; background-color: var(--color-surface);"
+        >
+          <option value="">-- Select a Zone --</option>
+          {% for z in zones %}
+            <option value="{{ z.id }}" {% if (ap and ap.zone_id == z.id) or (selected_zone_id == z.id|string) %}selected{% endif %}>
+              {{ z.name }} {% if z.building %}({{ z.building }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="display: flex; gap: var(--space-3); justify-content: flex-end;">
+        <a href="/access-points" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-ap">
+          {{ "Update AP" if ap else "Register AP" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

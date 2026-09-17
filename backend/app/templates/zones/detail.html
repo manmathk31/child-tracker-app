@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Zone: {{ zone.name }}{% endblock %}
+{% block page_title %}{{ zone.name }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div style="margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+    <a href="/zones" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+      &larr; Back to Zones
+    </a>
+    {% if current_user and current_user.role.value == 'admin' %}
+      <div style="display: flex; gap: var(--space-2);">
+        <a href="/zones/{{ zone.id }}/edit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px;">
+          Edit Zone
+        </a>
+        <a href="/access-points/new?zone_id={{ zone.id }}" class="btn btn-primary" style="font-size: var(--font-size-xs); min-height: 36px;">
+          + Add Access Point
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Zone Metadata Card #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header">
+      <h2 class="card-title">Zone Overview</h2>
+      <span class="status-pill {% if zone.is_active %}online{% else %}offline{% endif %}">
+        {{ "Active" if zone.is_active else "Inactive" }}
+      </span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-3);">
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Building</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
+          {{ zone.building or "Not specified" }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Floor</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
+          {{ zone.floor or "Not specified" }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Access Points</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
+          {{ zone.access_points|length }} AP{{ "s" if zone.access_points|length != 1 else "" }}
+        </div>
+      </div>
+    </div>
+    {% if zone.description %}
+      <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle);">
+        {{ zone.description }}
+      </p>
+    {% endif %}
+  </div>
+
+  {# Associated Access Points #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header">
+      <h2 class="card-title">Deployed Access Points</h2>
+      {% if current_user and current_user.role.value == 'admin' %}
+        <a href="/access-points/new?zone_id={{ zone.id }}" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+          Attach AP
+        </a>
+      {% endif %}
+    </div>
+
+    {% if zone.access_points and zone.access_points|length > 0 %}
+      <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+        {% for ap in zone.access_points %}
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-3); background: var(--color-surface-hover); border-radius: var(--radius-md);">
+            <div>
+              <div style="font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); color: var(--color-text-primary);">
+                {{ ap.name }}
+              </div>
+              <div style="font-family: monospace; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                {{ ap.bssid }} {% if ap.channel %}(Ch. {{ ap.channel }}){% endif %}
+              </div>
+            </div>
+            <span class="status-pill {% if ap.is_active %}online{% else %}offline{% endif %}" style="font-size: 10px; min-height: 24px;">
+              {{ "Active" if ap.is_active else "Inactive" }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {% with empty_title="No Access Points registered in this zone",
+              empty_message="To enable RSSI fingerprinting and positioning in this zone, at least two Wi-Fi access points should be registered.",
+              empty_action_url="/access-points/new?zone_id=" + zone.id|string,
+              empty_action_label="Register First AP" %}
+        {% include "components/empty_state.html" %}
+      {% endwith %}
+    {% endif %}
+  </div>
+
+  {# Calibration Status Card (Phase 3 Shell) #}
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Fingerprint Calibration</h2>
+    </div>
+    {% with empty_title="No active fingerprint survey",
+            empty_message="Fingerprint survey data will be collected during Phase 3 Calibration to enable Euclidean RSSI matching.",
+            empty_action_url=None,
+            empty_action_label=None %}
+      {% include "components/empty_state.html" %}
+    {% endwith %}
+  </div>
+</div>
+{% endblock %}

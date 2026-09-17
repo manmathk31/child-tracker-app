@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Wearable Devices{% endblock %}
+{% block page_title %}Wearable Devices{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+    <div>
+      <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+        ESP32 Wearables
+      </h2>
+      <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+        Active hardware tracking wristbands and badges assigned to students.
+      </p>
+    </div>
+    {% if current_user and current_user.role.value == 'admin' %}
+      <a href="/devices/new" class="btn btn-primary" id="btn-create-device">
+        <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>Register Wearable</span>
+      </a>
+    {% endif %}
+  </div>
+
+  {% if devices and devices|length > 0 %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4);">
+      {% for dev in devices %}
+        <div class="card" style="margin-bottom: 0;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--space-3);">
+            <div>
+              <div style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+                {{ dev.device_code }}
+              </div>
+              <div style="font-family: monospace; font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 2px;">
+                {{ dev.mac_address }}
+              </div>
+            </div>
+            <span class="status-pill {% if dev.status.value == 'online' %}online{% else %}offline{% endif %}" style="font-size: 10px; min-height: 24px;">
+              {{ dev.status.value|capitalize }}
+            </span>
+          </div>
+
+          <div style="margin-bottom: var(--space-3);">
+            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 4px;">
+              <strong>Assigned Student:</strong>
+              {% if dev.student %}
+                <a href="/students/{{ dev.student.id }}">{{ dev.student.full_name }} ({{ dev.student.student_code }})</a>
+              {% else %}
+                <span style="color: var(--color-text-muted);">Unassigned</span>
+              {% endif %}
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-2);">
+              <span style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Battery:</span>
+              <span style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: {% if dev.battery_percent > 40 %}var(--color-status-green){% elif dev.battery_percent > 20 %}var(--color-status-yellow){% else %}var(--color-status-red){% endif %};">
+                🔋 {{ dev.battery_percent }}%
+              </span>
+            </div>
+
+            {% if dev.firmware_version %}
+              <div style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 4px;">
+                Firmware: {{ dev.firmware_version }}
+              </div>
+            {% endif %}
+          </div>
+
+          {% if current_user and current_user.role.value == 'admin' %}
+            <div style="padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle); display: flex; justify-content: flex-end;">
+              <a href="/devices/{{ dev.id }}/edit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+                Edit Wearable
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% with empty_title="No wearables registered yet",
+            empty_message="ESP32 hardware tags must be enrolled before they can be assigned to children and tracked.",
+            empty_action_url="/devices/new",
+            empty_action_label="Register First Wearable",
+            empty_action_id="btn-empty-create-device" %}
+      {% include "components/empty_state.html" %}
+    {% endwith %}
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Students Roster{% endblock %}
+{% block page_title %}Students Roster{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+    <div>
+      <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+        Enrolled Students
+      </h2>
+      <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+        Children enrolled in monitoring with assigned hardware tags and zone permissions.
+      </p>
+    </div>
+    {% if current_user and current_user.role.value == 'admin' %}
+      <a href="/students/new" class="btn btn-primary" id="btn-create-student">
+        <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>Enroll Student</span>
+      </a>
+    {% endif %}
+  </div>
+
+  {% if students and students|length > 0 %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-4);">
+      {% for student in students %}
+        <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--space-2);">
+              <div style="display: flex; align-items: center; gap: var(--space-3);">
+                <div style="width: 40px; height: 40px; border-radius: var(--radius-full); background: var(--color-primary-light); color: var(--color-primary); font-weight: var(--font-weight-bold); display: flex; align-items: center; justify-content: center; font-size: var(--font-size-sm);">
+                  {{ student.full_name[:2].upper() }}
+                </div>
+                <div>
+                  <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--color-text-primary);">
+                    <a href="/students/{{ student.id }}">{{ student.full_name }}</a>
+                  </h3>
+                  <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                    {{ student.student_code }} • {{ student.class_name }}
+                  </div>
+                </div>
+              </div>
+              <span class="status-pill {% if student.device %}online{% else %}attention{% endif %}" style="font-size: 10px; min-height: 24px;">
+                {{ "Trackable" if student.device else "No Wearable" }}
+              </span>
+            </div>
+
+            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: var(--space-3) 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                <span>Wearable Tag:</span>
+                {% if student.device %}
+                  <span style="font-family: monospace; font-weight: var(--font-weight-semibold); color: var(--color-text-primary);">
+                    {{ student.device.device_code }} (🔋{{ student.device.battery_percent }}%)
+                  </span>
+                {% else %}
+                  <span style="color: var(--color-text-muted);">None</span>
+                {% endif %}
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span>Allowed Zones:</span>
+                <span style="font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
+                  {{ student.allowed_zones|length }} zone{{ "s" if student.allowed_zones|length != 1 else "" }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle); display: flex; justify-content: flex-end; gap: var(--space-2);">
+            <a href="/students/{{ student.id }}" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+              View Details
+            </a>
+            {% if current_user and current_user.role.value == 'admin' %}
+              <a href="/students/{{ student.id }}/edit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+                Edit
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% with empty_title="No students enrolled yet",
+            empty_message="Enroll students, assign hardware tags, and configure allowed zone boundaries to activate tracking.",
+            empty_action_url="/students/new",
+            empty_action_label="Enroll First Student",
+            empty_action_id="btn-empty-create-student" %}
+      {% include "components/empty_state.html" %}
+    {% endwith %}
+  {% endif %}
+</div>
+{% endblock %}
