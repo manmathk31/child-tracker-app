@@ -4,6 +4,7 @@ from app.services import (
     access_point_service,
     auth_service,
     device_service,
+    fingerprint_service,
     settings_service,
     student_service,
     zone_service,
@@ -16,4 +17,6 @@ __all__ = [
     "device_service",
     "student_service",
     "settings_service",
+    "fingerprint_service",
 ]
+

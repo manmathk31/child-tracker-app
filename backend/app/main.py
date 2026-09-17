@@ -17,12 +17,14 @@ from app.routers import (
     access_points,
     auth,
     devices,
+    fingerprints,
     health,
     pages,
     settings as settings_router,
     students,
     zones,
 )
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -102,6 +104,8 @@ def create_application() -> FastAPI:
     app.include_router(devices.router)
     app.include_router(students.router)
     app.include_router(settings_router.router)
+    app.include_router(fingerprints.router)
+
 
 
     # 6. Favicon handler to avoid 404 noise

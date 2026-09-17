@@ -7,6 +7,15 @@ from app.schemas.access_point import (
 )
 from app.schemas.common import HealthResponse
 from app.schemas.device import DeviceCreate, DeviceResponse, DeviceUpdate
+from app.schemas.fingerprint import (
+    CalibrationBatchIn,
+    FingerprintAPStatResponse,
+    FingerprintCreate,
+    FingerprintDetailResponse,
+    FingerprintResponse,
+    FingerprintUpdate,
+    ScanSampleIn,
+)
 from app.schemas.settings import (
     AlertSettingsResponse,
     AlertSettingsUpdate,
@@ -48,4 +57,12 @@ __all__ = [
     "SchoolSettingsResponse",
     "AlertSettingsUpdate",
     "AlertSettingsResponse",
+    "ScanSampleIn",
+    "CalibrationBatchIn",
+    "FingerprintCreate",
+    "FingerprintUpdate",
+    "FingerprintResponse",
+    "FingerprintDetailResponse",
+    "FingerprintAPStatResponse",
 ]
+

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Calibrating: {{ fingerprint.zone.name }}{% endblock %}
+{% block page_title %}Calibration: {{ fingerprint.zone.name }}{% endblock %}
+
+{% block content %}
+<div class="page-container" style="max-width: 900px; margin: 0 auto;">
+  <div style="margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+    <a href="/fingerprints" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+      &larr; Back to Surveys
+    </a>
+    <span class="status-pill attention">
+      <span class="status-dot"></span>
+      <span>CALIBRATION IN PROGRESS</span>
+    </span>
+  </div>
+
+  {# Progress Card #}
+  <div class="card" style="box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: var(--space-6); margin-bottom: var(--space-5);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
+      <div>
+        <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+          Zone: {{ fingerprint.zone.name }}
+        </h2>
+        <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+          Building: <strong>{{ fingerprint.zone.building or 'Main Campus' }}</strong> • Floor: <strong>{{ fingerprint.zone.floor or 'Ground' }}</strong> • RSSI Floor: <strong>{{ fingerprint.min_rssi_cutoff }} dBm</strong>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: var(--font-size-xs); text-transform: uppercase; color: var(--color-text-muted);">Scans Collected</div>
+        <div style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--color-primary);" id="sample-count-badge">
+          {{ fingerprint.sample_count }} / 25 target
+        </div>
+      </div>
+    </div>
+
+    {# Progress Bar #}
+    <div style="width: 100%; height: 10px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; margin-bottom: var(--space-4);">
+      {% set pct = (fingerprint.sample_count / 25 * 100)|round|int %}
+      {% if pct > 100 %}{% set pct = 100 %}{% endif %}
+      <div id="progress-fill" style="width: {{ pct }}%; height: 100%; background: var(--color-primary); transition: width 0.3s ease;"></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3);">
+      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">
+        Hold your ESP32 calibration device in this room. The device will automatically stream Wi-Fi bursts to this survey.
+      </p>
+
+      <div style="display: flex; gap: var(--space-2);">
+        {# Simulate 5 Scans Button for quick automated browser testing #}
+        <button type="button" class="btn btn-secondary" id="btn-simulate-burst" style="font-size: var(--font-size-xs); min-height: 36px;">
+          ⚡ Simulate Automated Burst (5 Scans)
+        </button>
+
+        {# Complete & Activate Form #}
+        <form action="/fingerprints/{{ fingerprint.id }}/activate" method="POST" style="margin: 0;">
+          <button
+            type="submit"
+            class="btn btn-primary"
+            id="btn-activate-survey"
+            style="min-height: 36px; font-size: var(--font-size-xs);"
+            {% if fingerprint.sample_count == 0 %}disabled{% endif %}
+          >
+            ✓ Complete &amp; Activate Survey
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# Monitored Access Points Table #}
+  <div class="card" style="box-shadow: var(--shadow-sm); border-radius: var(--radius-lg); padding: var(--space-6);">
+    <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin-bottom: var(--space-3);">
+      Whitelisted Access Points (Survey Scope)
+    </h3>
+    <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: var(--space-4);">
+      Signals from these specific Access Points are being recorded and filtered into the baseline radio map.
+    </p>
+
+    {% if whitelisted_aps and whitelisted_aps|length > 0 %}
+      <div style="overflow-x: auto;">
+        <table class="data-table" style="width: 100%;">
+          <thead>
+            <tr>
+              <th>Access Point</th>
+              <th>BSSID</th>
+              <th>Location</th>
+              <th>Channel</th>
+              <th>Filtering Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ap in whitelisted_aps %}
+              <tr>
+                <td style="font-weight: var(--font-weight-semibold); color: var(--color-text-primary);">
+                  {{ ap.name }}
+                </td>
+                <td style="font-family: monospace; font-size: var(--font-size-xs);">
+                  {{ ap.bssid }}
+                </td>
+                <td style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                  {{ ap.zone.name if ap.zone else 'Unassigned' }}
+                </td>
+                <td style="font-size: var(--font-size-xs);">
+                  Ch {{ ap.channel or '-' }}
+                </td>
+                <td>
+                  <span class="status-pill online" style="font-size: 10px; min-height: 22px;">
+                    Active Listening
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="padding: var(--space-4); text-align: center; color: var(--color-text-muted); font-size: var(--font-size-sm); border: 1px dashed var(--color-border); border-radius: var(--radius-md);">
+        Listening for all registered school reference Access Points.
+      </div>
+    {% endif %}
+
+    {# Hardware API Guide #}
+    <div style="margin-top: var(--space-6); padding: var(--space-4); background: var(--color-surface-sunken); border-radius: var(--radius-md); font-size: var(--font-size-xs);">
+      <div style="font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin-bottom: 4px;">
+        📡 ESP32 Hardware Streaming Endpoint:
+      </div>
+      <code style="display: block; padding: 6px 10px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: monospace; word-break: break-all;">
+        POST /api/v1/fingerprints/{{ fingerprint.id }}/samples
+      </code>
+      <div style="color: var(--color-text-secondary); margin-top: 6px;">
+        Calibration tags should HTTP POST JSON payloads formatted as: <code>{"scan": [{"bssid": "...", "rssi": -55}]}</code>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const fpId = "{{ fingerprint.id }}";
+  const btnSimulate = document.getElementById("btn-simulate-burst");
+  const sampleCountBadge = document.getElementById("sample-count-badge");
+  const progressFill = document.getElementById("progress-fill");
+  const btnActivate = document.getElementById("btn-activate-survey");
+
+  // Whitelisted AP BSSIDs available for local simulation
+  const targetBssids = [
+    {% for ap in whitelisted_aps %}
+      "{{ ap.bssid }}",
+    {% endfor %}
+  ];
+
+  if (btnSimulate) {
+    btnSimulate.addEventListener("click", async () => {
+      btnSimulate.disabled = true;
+      btnSimulate.textContent = "⚡ Streaming burst...";
+
+      try {
+        // Send 5 simulated scan sweeps
+        for (let i = 0; i < 5; i++) {
+          const scanItems = targetBssids.map(bssid => ({
+            bssid: bssid,
+            rssi: Math.floor(Math.random() * 25) - 75, // -75 to -50 dBm
+            channel: 6
+          }));
+
+          await fetch(`/api/v1/fingerprints/${fpId}/samples`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ scan: scanItems })
+          });
+        }
+
+        // Reload page to reflect updated counts and enable activation
+        window.location.reload();
+      } catch (err) {
+        alert("Burst simulation error: " + err.message);
+        btnSimulate.disabled = false;
+        btnSimulate.textContent = "⚡ Simulate Automated Burst (5 Scans)";
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

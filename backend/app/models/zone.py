@@ -9,6 +9,7 @@ from app.database.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimary
 
 if TYPE_CHECKING:
     from app.models.access_point import AccessPoint
+    from app.models.fingerprint import Fingerprint
     from app.models.student import Student
 
 
@@ -47,6 +48,13 @@ class Zone(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
         secondary="allowed_zones",
         back_populates="allowed_zones",
     )
+    fingerprints: Mapped[List["Fingerprint"]] = relationship(
+        "Fingerprint",
+        back_populates="zone",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<Zone {self.name} ({self.building or 'Default'}, {self.floor or 'Ground'})>"
+
+

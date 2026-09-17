@@ -175,3 +175,23 @@ Clears the session cookie.
 - `PUT /api/v1/settings/alerts` — Update safety alert thresholds and enable/disable SOS/fall alerts (Admin only).
 - Web Views: `GET /settings`, `POST /settings/school`, `POST /settings/alerts` (Admin only).
 
+---
+
+## 6. Phase 3 — Wi-Fi RSSI Fingerprint Collection & Calibration Endpoints
+
+### 6.1 Calibration Surveys
+- `GET /api/v1/fingerprints` — List all calibration surveys with zone metadata, status, sample counts, and quality scores.
+- `POST /api/v1/fingerprints` — Initialize a draft calibration survey session for a physical zone with optional AP whitelist and RSSI floor cutoff (Admin only).
+- `GET /api/v1/fingerprints/{id}` — Retrieve full survey report including computed AP statistical distributions (`median_rssi`, `mean_rssi`, `stddev_rssi`).
+- `POST /api/v1/fingerprints/{id}/samples` — Automated streaming endpoint for ESP32 calibration tags and tools. Receives bursts of observed Wi-Fi beacons (`{"scan": [{"bssid": "...", "rssi": -55}]}`), filters out rogue signals/hotspots and weak noise, and records raw sample vectors.
+- `POST /api/v1/fingerprints/{id}/activate` — Finalizes the survey, calculates mathematical mean/median/stddev per AP, computes coverage quality score (0.0 to 1.0), and marks the survey as active (archiving any previously active survey for that zone) (Admin only).
+
+### 6.2 Web Views
+- `GET /fingerprints` — Overview list of all calibration surveys, quality ratings, and zone statuses.
+- `GET /fingerprints/new` — Survey setup form with zone selector, RSSI cutoff threshold, and selective AP checkboxes (Admin only).
+- `POST /fingerprints/new` — Creates draft survey session and redirects to calibration screen (Admin only).
+- `GET /fingerprints/{id}/calibrate` — Interactive calibration dashboard with live sample progress counter, AP signal tables, and simulated scan burst trigger (Admin only).
+- `POST /fingerprints/{id}/activate` — Finalizes and activates survey (Admin only).
+- `GET /fingerprints/{id}` — Detailed report view showing AP distribution vectors, signal stability metrics, and observation counts.
+
+
