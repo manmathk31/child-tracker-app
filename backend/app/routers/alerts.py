@@ -1,14 +1,16 @@
 """Alerts router providing endpoints for notification counts, active safety alerts, and triage."""
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db, get_optional_current_user
+from app.core.dependencies import get_current_user, get_db, get_optional_current_user, require_admin
+from app.models.alert import AlertSeverity, AlertStatus, AlertType
 from app.models.user import User
 from app.schemas.alert import AlertCountResponse, AlertResponse
-from app.services import alert_service
+from app.services import alert_scheduler, alert_service
 
 router = APIRouter(tags=["Safety Alerts"])
 
@@ -30,15 +32,28 @@ async def get_alerts_count(
 @router.get(
     "/api/v1/alerts",
     response_model=list[AlertResponse],
-    summary="List active safety alerts",
+    summary="List safety alerts",
 )
-async def list_active_alerts_api(
-    limit: int = Query(20, ge=1, le=100),
+async def list_alerts_api(
+    alert_status: AlertStatus | None = Query(None, alias="status"),
+    severity: AlertSeverity | None = Query(None),
+    alert_type: AlertType | None = Query(None, alias="type"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertResponse]:
-    """Retrieve list of unacknowledged safety alerts for live feed and incident management."""
-    alerts = await alert_service.list_active_alerts(db, limit=limit)
+    """Retrieve safety alerts with optional filtering by status, severity, and type."""
+    # If status parameter is omitted, default to ACTIVE for backwards compatibility
+    status_filter = alert_status if alert_status is not None else AlertStatus.ACTIVE
+    alerts = await alert_service.list_alerts(
+        db,
+        status=status_filter,
+        severity=severity,
+        alert_type=alert_type,
+        limit=limit,
+        offset=offset,
+    )
     return [AlertResponse.model_validate(a) for a in alerts]
 
 
@@ -56,3 +71,33 @@ async def acknowledge_alert_api(
     """Mark an alert as acknowledged by the current authenticated operator."""
     alert = await alert_service.acknowledge_alert(db, alert_id, current_user.id)
     return AlertResponse.model_validate(alert)
+
+
+@router.post(
+    "/api/v1/alerts/{alert_id}/resolve",
+    response_model=AlertResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Resolve a safety alert",
+)
+async def resolve_alert_api(
+    alert_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AlertResponse:
+    """Mark an alert as resolved and clear it from active triage."""
+    alert = await alert_service.resolve_alert(db, alert_id, current_user.id)
+    return AlertResponse.model_validate(alert)
+
+
+@router.post(
+    "/api/v1/alerts/sweep",
+    response_model=dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Trigger immediate automated safety sweep",
+)
+async def trigger_manual_sweep(
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Admin-only endpoint to execute an immediate safety sweep on-demand."""
+    return await alert_scheduler.trigger_immediate_sweep()

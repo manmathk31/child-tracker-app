@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Safety Alerts & Incidents{% endblock %}
+{% block page_title %}Safety Alerts & Incidents{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  {# Header Row #}
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+    <div>
+      <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+        Safety Alerts & Incident Log
+      </h2>
+      <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+        Automated safety warnings, out-of-bounds safe zone violations, and hardware anomaly triage.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+      <a href="/dashboard" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px; padding: var(--space-1) var(--space-3);">
+        &larr; Live Dashboard
+      </a>
+      {% if current_user and current_user.role.value == 'admin' %}
+        <button id="btn-manual-sweep" onclick="triggerManualSweep()" class="btn btn-primary" style="font-size: var(--font-size-xs); min-height: 36px; padding: var(--space-1) var(--space-3);">
+          ⚡ Run Safety Sweep Now
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Filter Tabs and Controls #}
+  <div class="card" style="padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4);">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);">
+      {# Status Filter Tabs #}
+      <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+        <a href="/alerts?status=active{% if selected_severity %}&severity={{ selected_severity }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}" 
+           class="btn {% if active_tab == 'active' %}btn-primary{% else %}btn-secondary{% endif %}"
+           style="font-size: var(--font-size-xs); min-height: 32px; padding: var(--space-1) var(--space-3);">
+          Active
+          {% if active_count > 0 %}
+            <span style="display: inline-block; background: var(--color-status-red); color: white; border-radius: var(--radius-full); padding: 0 6px; font-size: 10px; margin-left: 4px;">
+              {{ active_count }}
+            </span>
+          {% endif %}
+        </a>
+
+        <a href="/alerts?status=acknowledged{% if selected_severity %}&severity={{ selected_severity }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}" 
+           class="btn {% if active_tab == 'acknowledged' %}btn-primary{% else %}btn-secondary{% endif %}"
+           style="font-size: var(--font-size-xs); min-height: 32px; padding: var(--space-1) var(--space-3);">
+          Acknowledged
+        </a>
+
+        <a href="/alerts?status=resolved{% if selected_severity %}&severity={{ selected_severity }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}" 
+           class="btn {% if active_tab == 'resolved' %}btn-primary{% else %}btn-secondary{% endif %}"
+           style="font-size: var(--font-size-xs); min-height: 32px; padding: var(--space-1) var(--space-3);">
+          Resolved
+        </a>
+
+        <a href="/alerts?status=all{% if selected_severity %}&severity={{ selected_severity }}{% endif %}{% if selected_type %}&type={{ selected_type }}{% endif %}" 
+           class="btn {% if active_tab == 'all' %}btn-primary{% else %}btn-secondary{% endif %}"
+           style="font-size: var(--font-size-xs); min-height: 32px; padding: var(--space-1) var(--space-3);">
+          All History
+        </a>
+      </div>
+
+      {# Dropdown Selectors for Severity and Type #}
+      <form method="GET" action="/alerts" style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+        <input type="hidden" name="status" value="{{ active_tab }}">
+        
+        <select name="severity" onchange="this.form.submit()" style="font-size: var(--font-size-xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface); min-height: 32px;">
+          <option value="">All Severities</option>
+          {% for sev in alert_severities %}
+            <option value="{{ sev }}" {% if selected_severity == sev %}selected{% endif %}>{{ sev|capitalize }}</option>
+          {% endfor %}
+        </select>
+
+        <select name="type" onchange="this.form.submit()" style="font-size: var(--font-size-xs); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface); min-height: 32px;">
+          <option value="">All Types</option>
+          {% for t in alert_types %}
+            <option value="{{ t }}" {% if selected_type == t %}selected{% endif %}>{{ t|replace('_', ' ')|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  </div>
+
+  {# Alerts Feed #}
+  {% if alerts and alerts|length > 0 %}
+    <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+      {% for alert in alerts %}
+        {% set is_critical = alert.severity.value == 'critical' %}
+        {% set is_warning = alert.severity.value == 'warning' %}
+        {% set border_style = "border: 2px solid var(--color-danger); background: #fffdfd;" if is_critical else ("border: 1px solid var(--color-warning); background: #fffcf0;" if is_warning else "border: 1px solid var(--color-border);") %}
+        
+        <div class="card" style="{{ border_style }} margin-bottom: 0; padding: var(--space-4);">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);">
+            {# Alert Details #}
+            <div style="display: flex; align-items: flex-start; gap: var(--space-3); flex: 1; min-width: 260px;">
+              <div style="width: 36px; height: 36px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; font-size: var(--font-size-base); flex-shrink: 0; {% if is_critical %}background: var(--color-status-red-bg); color: var(--color-status-red);{% elif is_warning %}background: var(--color-status-yellow-bg); color: var(--color-status-yellow);{% else %}background: var(--color-primary-light); color: var(--color-primary);{% endif %}">
+                {% if alert.type.value == 'restricted_zone' %}🚫
+                {% elif alert.type.value == 'low_battery' %}🪫
+                {% elif alert.type.value == 'offline' %}📡
+                {% elif alert.type.value == 'sos' %}🚨
+                {% elif alert.type.value == 'fall' %}⚠️
+                {% else %}🔔{% endif %}
+              </div>
+
+              <div>
+                <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: 4px;">
+                  <span style="font-size: 10px; text-transform: uppercase; font-weight: var(--font-weight-bold); padding: 2px 6px; border-radius: var(--radius-sm); {% if is_critical %}background: var(--color-status-red); color: white;{% elif is_warning %}background: var(--color-status-yellow); color: white;{% else %}background: var(--color-primary); color: white;{% endif %}">
+                    {{ alert.severity.value }}
+                  </span>
+
+                  <span class="status-pill {% if alert.status.value == 'active' %}attention{% elif alert.status.value == 'acknowledged' %}online{% else %}offline{% endif %}" style="font-size: 10px; padding: 1px 6px; min-height: 20px;">
+                    {{ alert.status.value|upper }}
+                  </span>
+
+                  <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+                    {{ alert.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') if alert.created_at else '—' }}
+                  </span>
+                </div>
+
+                <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin-bottom: var(--space-2);">
+                  {{ alert.message }}
+                </div>
+
+                {# Associated Entities Chips #}
+                <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                  {% if alert.student %}
+                    <div>
+                      Student: <a href="/students/{{ alert.student.id }}" style="font-weight: var(--font-weight-semibold);">👤 {{ alert.student.full_name }}</a>
+                    </div>
+                  {% endif %}
+
+                  {% if alert.device %}
+                    <div>
+                      Tag: <a href="/devices" style="font-family: monospace; font-weight: var(--font-weight-semibold);">🏷️ {{ alert.device.device_code }}</a>
+                    </div>
+                  {% endif %}
+
+                  {% if alert.zone %}
+                    <div>
+                      Zone: <a href="/zones/{{ alert.zone.id }}" style="font-weight: var(--font-weight-semibold);">📍 {{ alert.zone.name }}</a>
+                    </div>
+                  {% endif %}
+
+                  {% if alert.acknowledger %}
+                    <div style="color: var(--color-text-muted);">
+                      Ack by: <strong>{{ alert.acknowledger.full_name }}</strong>
+                    </div>
+                  {% endif %}
+
+                  {% if alert.resolved_at %}
+                    <div style="color: var(--color-success); font-weight: var(--font-weight-medium);">
+                      ✓ Resolved {{ alert.resolved_at.strftime('%H:%M:%S') }}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            {# Action Buttons #}
+            <div style="display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0;">
+              {% if alert.status.value == 'active' %}
+                <form method="POST" action="/alerts/{{ alert.id }}/acknowledge" style="display: inline;">
+                  <button type="submit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 2px 10px;">
+                    Acknowledge
+                  </button>
+                </form>
+                <form method="POST" action="/alerts/{{ alert.id }}/resolve" style="display: inline;">
+                  <button type="submit" class="btn btn-primary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 2px 10px;">
+                    Resolve
+                  </button>
+                </form>
+              {% elif alert.status.value == 'acknowledged' %}
+                <form method="POST" action="/alerts/{{ alert.id }}/resolve" style="display: inline;">
+                  <button type="submit" class="btn btn-primary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 2px 10px;">
+                    Mark Resolved
+                  </button>
+                </form>
+              {% else %}
+                <span style="font-size: var(--font-size-xs); color: var(--color-success); font-weight: var(--font-weight-semibold);">
+                  ✓ Closed
+                </span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% with empty_title="No safety alerts found",
+            empty_message="No incidents or alerts match your active filter criteria.",
+            empty_action_url="/dashboard",
+            empty_action_label="Return to Dashboard" %}
+      {% include "components/empty_state.html" %}
+    {% endwith %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function triggerManualSweep() {
+  const btn = document.getElementById('btn-manual-sweep');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sweeping...';
+  }
+  try {
+    const res = await fetch('/api/v1/alerts/sweep', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      alert('Failed to execute safety sweep.');
+    }
+  } catch (err) {
+    console.error('Sweep error:', err);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '⚡ Run Safety Sweep Now';
+    }
+  }
+}
+</script>
+{% endblock %}

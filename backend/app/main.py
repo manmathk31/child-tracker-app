@@ -1,9 +1,9 @@
 """ChildTrack FastAPI Application Factory and Entrypoint."""
 
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,12 +22,14 @@ from app.routers import (
     fingerprints,
     health,
     pages,
-    settings as settings_router,
     students,
     tracking,
     zones,
 )
-
+from app.routers import (
+    settings as settings_router,
+)
+from app.services import alert_scheduler
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -47,9 +49,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize database engine
     get_engine()
 
+    # Start background alert monitor
+    alert_scheduler.start_alert_scheduler(interval_seconds=30)
+
     yield
 
-    # Shutdown: gracefully close database connections
+    # Shutdown: stop background scheduler and gracefully close database connections
+    alert_scheduler.stop_alert_scheduler()
     logger.info("Shutting down %s...", settings.APP_NAME)
     await close_db_engine()
 
@@ -111,8 +117,6 @@ def create_application() -> FastAPI:
     app.include_router(tracking.router)
     app.include_router(alerts.router)
     app.include_router(dashboard.router)
-
-
 
     # 6. Favicon handler to avoid 404 noise
     @app.get("/favicon.ico", include_in_schema=False)
