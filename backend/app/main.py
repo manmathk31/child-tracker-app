@@ -15,7 +15,9 @@ from app.core.logging import request_id_ctx, setup_logging
 from app.database.session import close_db_engine, get_engine
 from app.routers import (
     access_points,
+    alerts,
     auth,
+    dashboard,
     devices,
     fingerprints,
     health,
@@ -107,6 +109,8 @@ def create_application() -> FastAPI:
     app.include_router(settings_router.router)
     app.include_router(fingerprints.router)
     app.include_router(tracking.router)
+    app.include_router(alerts.router)
+    app.include_router(dashboard.router)
 
 
 

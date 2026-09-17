@@ -217,5 +217,34 @@ Clears the session cookie.
 ### 7.3 Web Views
 - `GET /students/{id}/history` — Interactive movement timeline page displaying student profile summary, current estimated room, confidence badge, and historical chronological breadcrumbs table with raw scan details.
 
+---
 
+## 8. Phase 5 — Live Safety Monitoring Dashboard & Real-Time Feeds
 
+### 8.1 Live Monitoring Feed
+- `GET /api/v1/dashboard/live`
+  - High-performance pollable endpoint consumed every 5 seconds by the dashboard JavaScript engine.
+  - Supports `?class_name=<str>` query parameter for single-class filtering.
+  - Returns:
+    - `metrics`: Counts for total students, trackable online students, attention required students (low battery/offline/restricted), and active unacknowledged alerts.
+    - `zones`: Array of physical rooms with occupant counts, restricted-zone breach flags, and occupant avatar chips.
+    - `roaming_zone`: Special zone card for active wearables reporting signals below confidence cutoff or without matching rooms.
+    - `students`: Real-time status cards for each enrolled student (location, confidence, battery %, tag code, and status pill).
+    - `active_alerts`: Array of active safety alerts requiring attention.
+    - `timestamp`: Server ISO-8601 generation timestamp.
+
+### 8.2 Safety Alerts Management
+- `GET /api/v1/alerts/count`
+  - Lightweight endpoint called by global top-bar alert bell (`alerts_bell.js`) to display unacknowledged alert badge.
+  - Returns `{"count": <int>}`.
+- `GET /api/v1/alerts`
+  - Lists active, unacknowledged safety alerts sorted by creation time descending.
+- `POST /api/v1/alerts/{id}/acknowledge`
+  - Acknowledges an active safety alert.
+  - Accepts optional body: `{"notes": "Student escorted back to classroom"}`.
+  - Sets alert status to `acknowledged`, attaches user ID of caller and server timestamp.
+
+### 8.3 Web Views
+- `GET /dashboard`
+  - Primary live monitoring dashboard for administrators and teachers.
+  - Displays summary metric cards, interactive zone occupancy grid, roaming wearer card, student live roster with search/class filter, active safety alerts list, and auto-refresh toggle controls (5-second polling via `static/js/live_dashboard.js`).

@@ -5,6 +5,31 @@
 
 {% block content %}
 <div class="dashboard-container">
+  {# Top Control Bar: Live Status & Auto-refresh Toggle #}
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <span id="live-status-indicator" class="status-pill online">
+        <span class="status-dot"></span>
+        <span class="status-label">Live</span>
+      </span>
+      <span id="live-last-updated" style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+        Updated just now
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+      <button id="toggle-auto-refresh-btn" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px; padding: var(--space-1) var(--space-3);">
+        ⏸️ Pause Auto-Refresh
+      </button>
+      <a href="/zones" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px; padding: var(--space-1) var(--space-3);">
+        School Zones
+      </a>
+      <a href="/students" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px; padding: var(--space-1) var(--space-3);">
+        Students Roster
+      </a>
+    </div>
+  </div>
+
   {# Metric Summary Row #}
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6);">
     <div class="card" style="margin-bottom: 0;">
@@ -57,23 +82,110 @@
   </div>
 
   {# Zones Occupancy Section #}
-  <section class="card">
+  <section class="card" style="margin-bottom: var(--space-6);">
     <div class="card-header">
-      <h2 class="card-title">Zone Occupancy</h2>
+      <div>
+        <h2 class="card-title">Zone Occupancy & Distribution</h2>
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 2px;">
+          Live child headcounts and presence across campus zones.
+        </p>
+      </div>
       <a href="/zones" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px; padding: var(--space-1) var(--space-3);">
         Manage Zones
       </a>
     </div>
 
-    {% if zones and zones|length > 0 %}
-      <div class="zone-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-4);">
+    {% if (zones and zones|length > 0) or (roaming_zone and roaming_zone.occupant_count > 0) %}
+      <div id="occupancy-grid" class="zone-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4);">
         {% for zone in zones %}
-          <div class="card" style="border: 1px solid var(--color-border); margin-bottom: 0;">
-            <h3>{{ zone.name }}</h3>
+          {% set has_restricted = zone.has_restricted_student %}
+          <div class="card room-card" style="{% if has_restricted %}border: 2px solid var(--color-danger); background: #fff5f5;{% else %}border: 1px solid var(--color-border);{% endif %} margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-2);">
+                <div>
+                  <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin: 0;">
+                    <a href="/zones/{{ zone.zone_id }}" style="color: inherit; text-decoration: none;">📍 {{ zone.zone_name }}</a>
+                  </h3>
+                  {% if zone.building or zone.floor %}
+                    <div style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px;">
+                      {{ zone.building | default('') }} {% if zone.floor %}• {{ zone.floor }}{% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+                <span class="status-pill {% if zone.occupant_count > 0 %}online{% else %}offline{% endif %}" style="font-size: 11px; padding: 2px 8px; min-height: 24px;">
+                  {{ zone.occupant_count }} {{ "Student" if zone.occupant_count == 1 else "Students" }}
+                </span>
+              </div>
+
+              {% if has_restricted %}
+                <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: var(--font-weight-bold); color: var(--color-danger); margin-bottom: var(--space-2);">
+                  <span>⚠️</span> Restricted Zone Violation
+                </div>
+              {% endif %}
+
+              <!-- Occupant Chips -->
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2);">
+                {% if zone.occupants and zone.occupants|length > 0 %}
+                  {% for occ in zone.occupants %}
+                    <a href="/students/{{ occ.student_id }}" title="{{ occ.full_name }} ({{ occ.class_name }}){% if occ.is_restricted %} — RESTRICTED{% endif %}" style="text-decoration: none;">
+                      <div style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-full); font-size: 11px; font-weight: var(--font-weight-medium); {% if occ.is_restricted %}background: var(--color-danger); color: white;{% else %}background: var(--color-bg-subtle); color: var(--color-text-primary); border: 1px solid var(--color-border);{% endif %}">
+                        <span style="font-weight: var(--font-weight-bold);">{{ occ.full_name[:2].upper() }}</span>
+                        <span>{{ occ.full_name.split(' ')[0] }}</span>
+                        {% if occ.battery_percent is not none %}
+                          <span style="opacity: 0.8; font-size: 10px;">🔋{{ occ.battery_percent }}%</span>
+                        {% endif %}
+                      </div>
+                    </a>
+                  {% endfor %}
+                {% else %}
+                  <span style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-style: italic;">
+                    No students currently detected in room
+                  </span>
+                {% endif %}
+              </div>
+            </div>
           </div>
         {% endfor %}
       </div>
+
+      <!-- Roaming / Low Confidence Zone Card -->
+      <div id="roaming-zone-card" class="card" style="margin-top: var(--space-4); margin-bottom: 0; background: #fffcf0; border: 1px dashed #fcd34d;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); flex-wrap: wrap; gap: var(--space-2);">
+          <div style="display: flex; align-items: center; gap: var(--space-2);">
+            <span style="font-size: var(--font-size-lg);">⚠️</span>
+            <div>
+              <h3 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); color: #92400e; margin: 0;">
+                Roaming / Low Confidence Wearables
+              </h3>
+              <div style="font-size: var(--font-size-xs); color: #b45309;">
+                Active wearable signals reporting outside calibrated threshold confidence.
+              </div>
+            </div>
+          </div>
+          <span class="status-pill attention roaming-count" style="font-size: 11px; padding: 2px 8px; min-height: 24px;">
+            {{ roaming_zone.occupant_count if roaming_zone else 0 }} {{ "Student" if roaming_zone and roaming_zone.occupant_count == 1 else "Students" }}
+          </span>
+        </div>
+        <div class="roaming-occupants-list" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2);">
+          {% if roaming_zone and roaming_zone.occupants and roaming_zone.occupants|length > 0 %}
+            {% for occ in roaming_zone.occupants %}
+              <a href="/students/{{ occ.student_id }}" title="{{ occ.full_name }}" style="text-decoration: none;">
+                <div style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-full); font-size: 11px; background: #fff3cd; color: #856404; border: 1px solid #ffeeba;">
+                  <span>⚠️</span>
+                  <span>{{ occ.full_name }}</span>
+                  <span style="font-size: 10px; opacity: 0.8;">({{ occ.class_name }})</span>
+                </div>
+              </a>
+            {% endfor %}
+          {% else %}
+            <span style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-style: italic;">
+              None (All active wearables are localized in registered rooms)
+            </span>
+          {% endif %}
+        </div>
+      </div>
     {% else %}
+      <div id="occupancy-grid"></div>
       {% with empty_title="No zones configured yet",
               empty_message="School zones must be defined before child tracking and occupancy monitoring can activate.",
               empty_action_url="/zones/new",
@@ -84,29 +196,162 @@
     {% endif %}
   </section>
 
+  {# Live Student Tracking Roster with Search and Filters #}
+  <section class="card" style="margin-bottom: var(--space-6);">
+    <div class="card-header" style="flex-wrap: wrap; gap: var(--space-3);">
+      <div>
+        <h2 class="card-title">Student Live Tracking</h2>
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 2px;">
+          Individual child real-time locations, confidence percentages, and battery health.
+        </p>
+      </div>
+
+      {# Filters & Search Bar #}
+      <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+        <select id="class-filter-select" style="font-size: var(--font-size-xs); padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface); min-height: 36px; min-width: 140px;">
+          <option value="">All Classes</option>
+          {% for c in all_classes %}
+            <option value="{{ c }}" {% if selected_class == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+
+        <input type="text" id="student-search-input" placeholder="Search name, code, tag..." style="font-size: var(--font-size-xs); padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface); min-height: 36px; min-width: 200px;">
+      </div>
+    </div>
+
+    <div id="students-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-4);">
+      {% if students and students|length > 0 %}
+        {% for s in students %}
+          {% set is_restricted = s.is_restricted %}
+          {% set status_level = s.status_level %}
+          <div class="card student-card" style="{% if is_restricted %}border: 2px solid var(--color-danger); background: #fffdfd;{% else %}border: 1px solid var(--color-border);{% endif %} margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3);">
+                <div style="display: flex; align-items: center; gap: var(--space-3);">
+                  <div style="width: 42px; height: 42px; border-radius: var(--radius-full); background: var(--color-primary-light); color: var(--color-primary); font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); display: flex; align-items: center; justify-content: center;">
+                    {{ s.full_name[:2].upper() }}
+                  </div>
+                  <div>
+                    <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text-primary);">
+                      <a href="/students/{{ s.student_id }}" style="color: inherit; text-decoration: none;">{{ s.full_name }}</a>
+                    </div>
+                    <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                      {{ s.student_code }} • {{ s.class_name }}
+                    </div>
+                  </div>
+                </div>
+
+                <span class="status-pill {{ status_level }}" style="font-size: 11px; padding: 2px 8px; min-height: 24px;">
+                  <span class="status-dot"></span>
+                  <span>{{ status_level.upper() }}</span>
+                </span>
+              </div>
+
+              <!-- Estimated Location -->
+              <div style="background: var(--color-bg-subtle); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3);">
+                <div style="font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; font-weight: var(--font-weight-semibold);">
+                  Estimated Location
+                </div>
+                <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); margin-top: 2px; display: flex; align-items: center; justify-content: space-between;">
+                  {% if s.current_zone_name %}
+                    <span style="color: {% if is_restricted %}var(--color-danger){% else %}var(--color-success){% endif %};">
+                      📍 {{ s.current_zone_name }}
+                    </span>
+                    <span style="font-size: 11px; font-weight: normal; color: var(--color-text-muted);">
+                      {{ (s.confidence * 100)|round|int }}% conf
+                    </span>
+                  {% else %}
+                    <span style="color: var(--color-warning);">
+                      ⚠️ Unknown / Roaming
+                    </span>
+                  {% endif %}
+                </div>
+                {% if is_restricted %}
+                  <div style="margin-top: 4px; font-size: 11px; color: var(--color-danger); font-weight: var(--font-weight-bold);">
+                    🚫 Outside permitted safe zones!
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- Wearable Hardware Info -->
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                <div>
+                  Tag: <strong style="font-family: monospace;">{{ s.device_code | default('Unpaired') }}</strong>
+                </div>
+                <div>
+                  {% if s.battery_percent is not none %}
+                    <span style="font-weight: var(--font-weight-semibold); color: {% if s.battery_percent <= 20 %}var(--color-danger){% else %}var(--color-text-primary){% endif %};">
+                      🔋 {{ s.battery_percent }}%
+                    </span>
+                  {% else %}
+                    —
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle); display: flex; justify-content: space-between; align-items: center;">
+              <a href="/students/{{ s.student_id }}/history" style="font-size: var(--font-size-xs); color: var(--color-primary); font-weight: var(--font-weight-medium);">
+                Movement Timeline &rarr;
+              </a>
+              <a href="/students/{{ s.student_id }}" style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                Profile
+              </a>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div style="grid-column: 1 / -1; padding: var(--space-6); text-align: center; color: var(--color-text-muted);">
+          No students currently enrolled.
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
   {# Recent Alerts Feed Section #}
   <section class="card">
     <div class="card-header">
-      <h2 class="card-title">Active Safety Alerts</h2>
-      <a href="/alerts" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px; padding: var(--space-1) var(--space-3);">
-        View All Alerts
-      </a>
+      <div>
+        <h2 class="card-title">Active Safety Alerts</h2>
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 2px;">
+          Unacknowledged safety warnings, restricted zone breaches, and hardware anomalies.
+        </p>
+      </div>
     </div>
 
-    {% if active_alerts and active_alerts|length > 0 %}
-      <ul class="alerts-list">
+    <ul id="alerts-feed-list" class="alerts-list" style="list-style: none; padding: 0; margin: 0;">
+      {% if active_alerts and active_alerts|length > 0 %}
         {% for alert in active_alerts %}
-          <li>{{ alert.message }}</li>
+          {% set severity_color = "var(--color-danger)" if alert.severity == "critical" else ("var(--color-warning)" if alert.severity == "warning" else "var(--color-primary)") %}
+          <li style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-3); border-bottom: 1px solid var(--color-border-subtle); gap: var(--space-3); flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: var(--space-3);">
+              <span style="display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-full); background: {{ severity_color }};"></span>
+              <div>
+                <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-sm); color: var(--color-text-primary);">
+                  {{ alert.message }}
+                </div>
+                <div style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px;">
+                  Type: <strong>{{ alert.type }}</strong> • {{ alert.created_at.strftime('%H:%M:%S') if alert.created_at else '—' }}
+                </div>
+              </div>
+            </div>
+            <div>
+              <button onclick="window.acknowledgeAlert('{{ alert.id }}')" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 28px; padding: 2px 10px;">
+                Acknowledge
+              </button>
+            </div>
+          </li>
         {% endfor %}
-      </ul>
-    {% else %}
-      {% with empty_title="No active safety alerts",
-              empty_message="All monitored children and devices are currently reporting within expected safety thresholds.",
-              empty_action_url=None,
-              empty_action_label=None %}
-        {% include "components/empty_state.html" %}
-      {% endwith %}
-    {% endif %}
+      {% else %}
+        <div style="padding: var(--space-4); text-align: center; color: var(--color-success); font-size: var(--font-size-sm); background: var(--color-status-green-bg); border-radius: var(--radius-md); border: 1px solid var(--color-status-green-border);">
+          ✓ All clear — No active safety alerts. All monitored students are in authorized safe zones.
+        </div>
+      {% endif %}
+    </ul>
   </section>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/live_dashboard.js"></script>
 {% endblock %}

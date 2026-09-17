@@ -5,7 +5,19 @@ from app.schemas.access_point import (
     AccessPointResponse,
     AccessPointUpdate,
 )
+from app.schemas.alert import (
+    AlertAcknowledgeIn,
+    AlertCountResponse,
+    AlertResponse,
+)
 from app.schemas.common import HealthResponse
+from app.schemas.dashboard import (
+    DashboardLiveResponse,
+    DashboardMetrics,
+    OccupantSummary,
+    StudentLiveStatus,
+    ZoneOccupancy,
+)
 from app.schemas.device import DeviceCreate, DeviceResponse, DeviceUpdate
 from app.schemas.fingerprint import (
     CalibrationBatchIn,
@@ -78,5 +90,13 @@ __all__ = [
     "LocationEstimate",
     "LocationRecordResponse",
     "StudentLiveLocationResponse",
+    "AlertResponse",
+    "AlertCountResponse",
+    "AlertAcknowledgeIn",
+    "DashboardMetrics",
+    "OccupantSummary",
+    "ZoneOccupancy",
+    "StudentLiveStatus",
+    "DashboardLiveResponse",
 ]
 

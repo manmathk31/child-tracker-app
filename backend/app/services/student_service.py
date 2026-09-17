@@ -159,3 +159,15 @@ async def deactivate_student(db: AsyncSession, student_id: uuid.UUID) -> Student
         student.device.student_id = None
     await db.commit()
     return await get_student_by_id(db, student.id)
+
+
+async def list_classes(db: AsyncSession) -> Sequence[str]:
+    """Retrieve distinct class/grade names for active students."""
+    stmt = (
+        select(Student.class_name)
+        .where(Student.is_active == True)  # noqa: E712
+        .distinct()
+        .order_by(Student.class_name.asc())
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()

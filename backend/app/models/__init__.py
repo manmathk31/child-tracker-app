@@ -2,6 +2,7 @@
 
 from app.database.base import Base
 from app.models.access_point import AccessPoint
+from app.models.alert import Alert, AlertSeverity, AlertStatus, AlertType
 from app.models.device import Device, DeviceStatus
 from app.models.fingerprint import (
     Fingerprint,
@@ -32,6 +33,10 @@ __all__ = [
     "FingerprintSample",
     "FingerprintStatus",
     "LocationRecord",
+    "Alert",
+    "AlertType",
+    "AlertSeverity",
+    "AlertStatus",
 ]
 
 
