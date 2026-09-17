@@ -56,8 +56,13 @@
 
       <div>
         <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Current Zone</div>
-        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); margin-top: 4px;">
-          Unknown (Live scan pending)
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); margin-top: 4px;">
+          {% if live_info and live_info.current_zone_name %}
+            <span style="color: var(--color-success);">📍 {{ live_info.current_zone_name }}</span>
+            <span class="status-pill online" style="font-size: 10px; margin-left: 6px;">{{ (live_info.confidence * 100)|round|int }}%</span>
+          {% else %}
+            <span style="color: var(--color-text-secondary);">Unknown / Pending Scan</span>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -91,17 +96,66 @@
     {% endif %}
   </div>
 
-  {# Location Audit History (Phase 5 Shell) #}
+  {# Location Audit History #}
   <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
       <h3 class="card-title">Recent Location History</h3>
+      <a href="/students/{{ student.id }}/history" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px;">
+        View Full Movement History &rarr;
+      </a>
     </div>
-    {% with empty_title="No location audit records yet",
-            empty_message="Location breadcrumbs will appear here automatically once live ESP32 telemetry ingestion commences in Phase 5.",
-            empty_action_url=None,
-            empty_action_label=None %}
-      {% include "components/empty_state.html" %}
-    {% endwith %}
+
+    {% if recent_history and recent_history|length > 0 %}
+      <div class="table-container" style="margin-top: var(--space-3);">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 170px;">Timestamp</th>
+              <th>Estimated Zone</th>
+              <th style="width: 120px;">Confidence</th>
+              <th style="width: 130px;">Observed APs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rec in recent_history %}
+              <tr>
+                <td style="font-size: var(--font-size-xs); font-family: monospace; color: var(--color-text-secondary);">
+                  {{ rec.recorded_at.strftime('%Y-%m-%d %H:%M:%S') if rec.recorded_at else '—' }}
+                </td>
+                <td>
+                  {% if rec.zone %}
+                    <a href="/zones/{{ rec.zone.id }}" style="font-weight: var(--font-weight-semibold); color: var(--color-text-primary); text-decoration: none;">
+                      📍 {{ rec.zone.name }}
+                    </a>
+                  {% else %}
+                    <span style="color: var(--color-warning);">⚠️ Unknown / Low Confidence</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="status-pill {% if rec.confidence >= 0.70 %}online{% elif rec.confidence >= 0.45 %}attention{% else %}offline{% endif %}" style="font-size: var(--font-size-xs);">
+                    {{ (rec.confidence * 100)|round|int }}%
+                  </span>
+                </td>
+                <td style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                  {% if rec.raw_scan and rec.raw_scan.scan %}
+                    {{ rec.raw_scan.scan|length }} AP beacon{{ "s" if rec.raw_scan.scan|length != 1 else "" }}
+                  {% else %}
+                    0 APs
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {% with empty_title="No location audit records yet",
+              empty_message="Location breadcrumbs will appear here automatically once live ESP32 wearable telemetry pings are received.",
+              empty_action_url=None,
+              empty_action_label=None %}
+        {% include "components/empty_state.html" %}
+      {% endwith %}
+    {% endif %}
   </div>
 </div>
 {% endblock %}

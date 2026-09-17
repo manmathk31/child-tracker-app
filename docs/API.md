@@ -194,4 +194,28 @@ Clears the session cookie.
 - `POST /fingerprints/{id}/activate` — Finalizes and activates survey (Admin only).
 - `GET /fingerprints/{id}` — Detailed report view showing AP distribution vectors, signal stability metrics, and observation counts.
 
+---
+
+## 7. Phase 4 — Indoor Localization Engine & Tracking Endpoints
+
+### 7.1 Operational Hardware Ingestion (ESP32 Protocol)
+- `POST /api/v1/tracking/ingest`
+  - Operational high-throughput telemetry ingestion endpoint called by ESP32 wearable tags.
+  - Receives live Wi-Fi RSSI scan bursts (`{"device_id": "WB-001", "mac_address": "AA:BB:...", "battery_percent": 88, "scan": [{"bssid": "...", "rssi": -55}]}`).
+  - Updates wearable operational status (`online`), battery percentage, and `last_seen_at`.
+  - Evaluates active fingerprint models cached in memory using variance-weighted Euclidean distance with missing-AP penalties and softmin probabilistic confidence scoring.
+  - Filters out room fluttering with temporal hysteresis smoothing.
+  - Persists audit trails in `location_records` for enrolled students.
+  - Returns `200 OK` JSON acknowledgement: `{"status": "ack", "device_id": "WB-001", "assigned_zone": "Classroom 101", "confidence": 0.88, "server_time": "..."}`.
+
+### 7.2 Student Live Location & Breadcrumbs API
+- `GET /api/v1/students/{id}/location`
+  - Returns real-time location estimate for a student, paired wearable tag status, battery %, confidence score, and recent breadcrumbs.
+- `GET /api/v1/students/{id}/history`
+  - Returns chronological indoor localization audit records for a student (`?limit=50`).
+
+### 7.3 Web Views
+- `GET /students/{id}/history` — Interactive movement timeline page displaying student profile summary, current estimated room, confidence badge, and historical chronological breadcrumbs table with raw scan details.
+
+
 

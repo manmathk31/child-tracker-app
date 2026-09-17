@@ -22,6 +22,7 @@ from app.routers import (
     pages,
     settings as settings_router,
     students,
+    tracking,
     zones,
 )
 
@@ -105,6 +106,7 @@ def create_application() -> FastAPI:
     app.include_router(students.router)
     app.include_router(settings_router.router)
     app.include_router(fingerprints.router)
+    app.include_router(tracking.router)
 
 
 

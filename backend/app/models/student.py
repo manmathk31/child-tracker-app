@@ -67,15 +67,21 @@ class Student(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
 
     @property
     def device_id(self) -> Optional[uuid.UUID]:
-        return self.device.id if self.device else None
+        if "device" in self.__dict__ and self.device:
+            return self.device.id
+        return None
 
     @property
     def device_code(self) -> Optional[str]:
-        return self.device.device_code if self.device else None
+        if "device" in self.__dict__ and self.device:
+            return self.device.device_code
+        return None
 
     @property
     def device_battery(self) -> Optional[int]:
-        return self.device.battery_percent if self.device else None
+        if "device" in self.__dict__ and self.device:
+            return self.device.battery_percent
+        return None
 
     def __repr__(self) -> str:
         return f"<Student {self.student_code} - {self.full_name} ({self.class_name})>"

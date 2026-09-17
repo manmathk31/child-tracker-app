@@ -97,11 +97,15 @@ class Fingerprint(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     @property
     def zone_name(self) -> Optional[str]:
-        return self.zone.name if self.zone else None
+        if "zone" in self.__dict__ and self.zone:
+            return self.zone.name
+        return None
 
     @property
     def creator_name(self) -> Optional[str]:
-        return self.creator.full_name if self.creator else None
+        if "creator" in self.__dict__ and self.creator:
+            return self.creator.full_name
+        return None
 
     def __repr__(self) -> str:
         return f"<Fingerprint id={self.id} zone_id={self.zone_id} status={self.status.value} samples={self.sample_count}>"
@@ -153,11 +157,15 @@ class FingerprintAPStat(Base, UUIDPrimaryKeyMixin):
 
     @property
     def access_point_name(self) -> Optional[str]:
-        return self.access_point.name if self.access_point else None
+        if "access_point" in self.__dict__ and self.access_point:
+            return self.access_point.name
+        return None
 
     @property
     def access_point_bssid(self) -> Optional[str]:
-        return self.access_point.bssid if self.access_point else None
+        if "access_point" in self.__dict__ and self.access_point:
+            return self.access_point.bssid
+        return None
 
     def __repr__(self) -> str:
         return f"<FingerprintAPStat ap_id={self.access_point_id} median={self.median_rssi} stddev={self.stddev_rssi}>"

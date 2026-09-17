@@ -15,7 +15,12 @@ from app.core.dependencies import get_current_user, get_db, get_optional_current
 from app.core.exceptions import ConflictError, NotFoundError
 from app.models.user import User, UserRole
 from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
-from app.services import device_service, student_service, zone_service
+from app.services import (
+    device_service,
+    localization_service,
+    student_service,
+    zone_service,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -174,6 +179,9 @@ async def student_detail_page(
     except NotFoundError:
         return RedirectResponse(url="/students", status_code=302)
 
+    recent_history = await localization_service.get_student_location_history(db, student_id, limit=5)
+    live_info = await localization_service.get_student_live_location(db, student_id)
+
     settings = get_settings()
     context = {
         "request": request,
@@ -182,6 +190,8 @@ async def student_detail_page(
         "app_version": settings.APP_VERSION,
         "current_user": current_user,
         "student": student,
+        "recent_history": recent_history,
+        "live_info": live_info,
     }
     return templates.TemplateResponse(request=request, name="students/detail.html", context=context)
 

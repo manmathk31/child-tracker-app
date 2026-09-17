@@ -9,6 +9,7 @@ from app.models.fingerprint import (
     FingerprintSample,
     FingerprintStatus,
 )
+from app.models.location_record import LocationRecord
 from app.models.settings import AlertSettings, SchoolSettings
 from app.models.student import Student, allowed_zones
 from app.models.user import User, UserRole
@@ -30,5 +31,7 @@ __all__ = [
     "FingerprintAPStat",
     "FingerprintSample",
     "FingerprintStatus",
+    "LocationRecord",
 ]
+
 

@@ -290,6 +290,9 @@ async def activate_fingerprint(db: AsyncSession, fingerprint_id: uuid.UUID) -> F
 
     fingerprint.status = FingerprintStatus.ACTIVE
     await db.commit()
+    from app.services.localization_service import invalidate_fingerprint_cache
+
+    invalidate_fingerprint_cache()
     logger.info("Activated fingerprint %s for zone %s", fingerprint.id, fingerprint.zone_id)
     return await get_fingerprint_by_id(db, fingerprint.id)
 

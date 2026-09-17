@@ -16,6 +16,14 @@ from app.schemas.fingerprint import (
     FingerprintUpdate,
     ScanSampleIn,
 )
+from app.schemas.location import (
+    LocationEstimate,
+    LocationRecordResponse,
+    StudentLiveLocationResponse,
+    TelemetryIngestIn,
+    TelemetryIngestResponse,
+    TelemetryScanItem,
+)
 from app.schemas.settings import (
     AlertSettingsResponse,
     AlertSettingsUpdate,
@@ -64,5 +72,11 @@ __all__ = [
     "FingerprintResponse",
     "FingerprintDetailResponse",
     "FingerprintAPStatResponse",
+    "TelemetryScanItem",
+    "TelemetryIngestIn",
+    "TelemetryIngestResponse",
+    "LocationEstimate",
+    "LocationRecordResponse",
+    "StudentLiveLocationResponse",
 ]
 
