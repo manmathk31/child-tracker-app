@@ -51,6 +51,23 @@ class Settings(BaseSettings):
     DEFAULT_LOW_BATTERY_PERCENT: int = 20
     DEFAULT_MIN_LOCALIZATION_CONFIDENCE: float = 0.45
 
+    # Cloud MQTT Broker Configuration (HiveMQ Cloud)
+    MQTT_ENABLED: bool = True
+    MQTT_BROKER: str = Field(
+        default="",
+        description="HiveMQ Cloud MQTT broker hostname (e.g. xxxxx.s1.eu.hivemq.cloud)",
+    )
+    MQTT_PORT: int = Field(default=8883, description="MQTT TLS port (default: 8883)")
+    MQTT_USERNAME: str = Field(default="", description="HiveMQ client username")
+    MQTT_PASSWORD: str = Field(default="", description="HiveMQ client password")
+    MQTT_TOPIC_TELEMETRY: str = Field(
+        default="childtrack/telemetry", description="MQTT topic for wearable telemetry"
+    )
+    MQTT_TOPIC_ACK_PREFIX: str = Field(
+        default="childtrack/ack", description="Topic prefix for zone acknowledgements"
+    )
+    MQTT_KEEPALIVE: int = Field(default=60, description="MQTT keepalive interval in seconds")
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
         env_file_encoding="utf-8",

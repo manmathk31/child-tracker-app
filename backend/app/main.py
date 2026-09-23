@@ -1,5 +1,6 @@
 """ChildTrack FastAPI Application Factory and Entrypoint."""
 
+import asyncio
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -29,7 +30,7 @@ from app.routers import (
 from app.routers import (
     settings as settings_router,
 )
-from app.services import alert_scheduler
+from app.services import alert_scheduler, mqtt_service
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -52,9 +53,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start background alert monitor
     alert_scheduler.start_alert_scheduler(interval_seconds=30)
 
+    # Start background cloud MQTT subscriber (HiveMQ Cloud)
+    if settings.MQTT_ENABLED:
+        mqtt_service.start_mqtt_service(loop=asyncio.get_running_loop())
+
     yield
 
-    # Shutdown: stop background scheduler and gracefully close database connections
+    # Shutdown: stop background services and gracefully close database connections
+    mqtt_service.stop_mqtt_service()
     alert_scheduler.stop_alert_scheduler()
     logger.info("Shutting down %s...", settings.APP_NAME)
     await close_db_engine()

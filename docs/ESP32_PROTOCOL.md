@@ -6,6 +6,17 @@ This document defines the communication contract between ESP32 wearable hardware
 
 ## 1. Overview & Transport
 
+ChildTrack supports dual ingestion transports:
+
+### 1.1 Cloud MQTT (Recommended — Firewall & Network Isolation Proof)
+- **Transport**: MQTT over TLS (Port 8883)
+- **Broker**: HiveMQ Cloud (`*.hivemq.cloud`)
+- **Telemetry Topic (Publish)**: `childtrack/telemetry`
+- **Acknowledgement Topic (Subscribe)**: `childtrack/ack/{device_id}`
+- **Authentication**: Username & Password credentials
+- **Advantage**: Requires zero incoming ports on host machine; works across separate Wi-Fi networks and mobile hotspots.
+
+### 1.2 Local HTTP Ingestion (Direct LAN)
 - **Transport**: HTTP/1.1 POST over standard TLS/HTTPS (or HTTP for local isolated Wi-Fi networks).
 - **Endpoint**: `/api/v1/tracking/ingest`
 - **Content-Type**: `application/json`
