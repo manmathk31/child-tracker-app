@@ -19,6 +19,13 @@
           Continue Calibration &rarr;
         </a>
       {% endif %}
+      {% if current_user and current_user.role.value == 'admin' %}
+        <form action="/fingerprints/{{ fingerprint.id }}/delete" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to permanently delete this survey?');">
+          <button type="submit" class="btn btn-danger" style="font-size: var(--font-size-xs); min-height: 36px;">
+            Delete Survey
+          </button>
+        </form>
+      {% endif %}
     </div>
   </div>
 

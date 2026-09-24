@@ -24,6 +24,7 @@ from app.routers import (
     health,
     pages,
     students,
+    testing_portal,
     tracking,
     zones,
 )
@@ -123,6 +124,7 @@ def create_application() -> FastAPI:
     app.include_router(tracking.router)
     app.include_router(alerts.router)
     app.include_router(dashboard.router)
+    app.include_router(testing_portal.router)
 
     # 6. Favicon handler to avoid 404 noise
     @app.get("/favicon.ico", include_in_schema=False)

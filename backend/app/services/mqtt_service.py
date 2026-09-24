@@ -16,8 +16,9 @@ from pydantic import ValidationError
 from app.core.config import get_settings
 from app.core.exceptions import NotFoundError
 from app.database.session import get_session_factory
+from app.schemas.fingerprint import CalibrationBatchIn
 from app.schemas.location import TelemetryIngestIn, TelemetryIngestResponse
-from app.services import localization_service
+from app.services import fingerprint_service, localization_service
 
 logger = logging.getLogger("childtrack.mqtt")
 
@@ -68,6 +69,41 @@ async def _process_telemetry_payload(payload: TelemetryIngestIn) -> None:
             )
 
 
+async def _process_calibration_payload(survey_id: uuid.UUID, batch: CalibrationBatchIn) -> None:
+    """Asynchronously process an ingested calibration batch for a survey.
+
+    Args:
+        survey_id: Target Fingerprint survey UUID.
+        batch: Validated CalibrationBatchIn model containing Wi-Fi scan readings.
+    """
+    session_factory = get_session_factory()
+    async with session_factory() as db:
+        try:
+            accepted_count = await fingerprint_service.ingest_samples_batch(db, survey_id, batch)
+            logger.info(
+                "MQTT calibration sample burst recorded for survey %s: %d new samples",
+                survey_id,
+                accepted_count,
+            )
+
+            # Publish acknowledgement back to cloud
+            ack_topic = f"childtrack/ack/calibration/{survey_id}"
+            if _mqtt_client is not None:
+                ack_payload = json.dumps(
+                    {
+                        "status": "ack",
+                        "survey_id": str(survey_id),
+                        "accepted_count": accepted_count,
+                    }
+                )
+                _mqtt_client.publish(ack_topic, ack_payload, qos=0)
+
+        except NotFoundError:
+            logger.warning("MQTT calibration ignored: Survey UUID %s not found", survey_id)
+        except Exception as exc:
+            logger.error("Error processing MQTT calibration for survey %s: %s", survey_id, exc, exc_info=True)
+
+
 def _publish_ack_message(topic: str, ack: TelemetryIngestResponse) -> None:
     """Publish an ingestion acknowledgement packet back to the MQTT broker.
 
@@ -108,8 +144,16 @@ def _on_connect(client: Any, userdata: Any, flags: Any, rc: Any, *args: Any) -> 
             settings.MQTT_BROKER,
             settings.MQTT_PORT,
         )
-        client.subscribe(settings.MQTT_TOPIC_TELEMETRY, qos=1)
-        logger.info("Subscribed to MQTT telemetry topic: %s", settings.MQTT_TOPIC_TELEMETRY)
+        client.subscribe([
+            (settings.MQTT_TOPIC_TELEMETRY, 1),
+            ("childtrack/calibration/+", 1),
+            (settings.MQTT_TOPIC_TESTING_TETHER, 1),
+        ])
+        logger.info(
+            "Subscribed to MQTT topics: %s, childtrack/calibration/+, %s",
+            settings.MQTT_TOPIC_TELEMETRY,
+            settings.MQTT_TOPIC_TESTING_TETHER,
+        )
     else:
         _is_connected = False
         logger.error(
@@ -128,26 +172,54 @@ def _on_disconnect(client: Any, userdata: Any, rc: Any, *args: Any) -> None:
 def _on_message(client: Any, userdata: Any, msg: Any) -> None:
     """Callback fired when a message arrives on a subscribed MQTT topic."""
     global _event_loop
-    if _event_loop is None or _event_loop.is_closed():
-        logger.warning("Dropped incoming MQTT message: Event loop is inactive")
-        return
+    settings = get_settings()
 
     try:
         raw_payload = msg.payload.decode("utf-8")
         logger.debug("Received MQTT message on %s (%d bytes)", msg.topic, len(raw_payload))
 
-        # Validate message schema with Pydantic
-        payload_model = TelemetryIngestIn.model_validate_json(raw_payload)
+        if msg.topic == settings.MQTT_TOPIC_TESTING_TETHER or msg.topic.startswith("childtrack/testing/"):
+            try:
+                data = json.loads(raw_payload)
+                from app.services import testing_tether_service
 
-        # Dispatch async DB processing task onto FastAPI main event loop
-        asyncio.run_coroutine_threadsafe(
-            _process_telemetry_payload(payload_model),
-            _event_loop,
-        )
+                testing_tether_service.get_tether_monitor().update_telemetry(data)
+                logger.info(
+                    "Tether telemetry received: RSSI=%s dBm -> Status=%s",
+                    data.get("rssi"),
+                    data.get("status"),
+                )
+            except Exception as exc:
+                logger.warning("Error processing testing tether payload: %s", exc)
+            return
+
+        if _event_loop is None or _event_loop.is_closed():
+            logger.warning("Dropped incoming MQTT message: Event loop is inactive")
+            return
+
+        if msg.topic.startswith("childtrack/calibration/"):
+            survey_id_str = msg.topic.split("/")[-1]
+            try:
+                survey_id = uuid.UUID(survey_id_str)
+            except ValueError:
+                logger.warning("Invalid survey UUID in topic: %s", msg.topic)
+                return
+
+            batch_model = CalibrationBatchIn.model_validate_json(raw_payload)
+            asyncio.run_coroutine_threadsafe(
+                _process_calibration_payload(survey_id, batch_model),
+                _event_loop,
+            )
+        else:
+            payload_model = TelemetryIngestIn.model_validate_json(raw_payload)
+            asyncio.run_coroutine_threadsafe(
+                _process_telemetry_payload(payload_model),
+                _event_loop,
+            )
 
     except ValidationError as val_err:
         logger.warning(
-            "Discarded invalid telemetry payload on %s: %s",
+            "Discarded invalid MQTT payload on %s: %s",
             msg.topic,
             val_err.errors(),
         )

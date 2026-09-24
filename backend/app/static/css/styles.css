@@ -471,6 +471,18 @@ button {
   text-decoration: none;
 }
 
+.btn-danger {
+  background-color: var(--color-status-red);
+  color: var(--color-text-inverse);
+  border-color: var(--color-status-red);
+}
+.btn-danger:hover {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+  color: var(--color-text-inverse);
+  text-decoration: none;
+}
+
 /* Empty State Component */
 .empty-state {
   display: flex;

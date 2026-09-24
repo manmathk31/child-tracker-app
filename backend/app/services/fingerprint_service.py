@@ -311,3 +311,34 @@ async def get_active_fingerprint_for_zone(db: AsyncSession, zone_id: uuid.UUID) 
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def delete_fingerprint(db: AsyncSession, fingerprint_id: uuid.UUID) -> bool:
+    """Delete a fingerprint survey and its associated statistical distributions and raw samples.
+
+    If the deleted survey was the active reference for its zone, invalidates
+    the in-memory localization cache so subsequent tracking scans do not use stale profiles.
+
+    Args:
+        db: Database session.
+        fingerprint_id: Target survey UUID.
+
+    Returns:
+        True if deleted successfully.
+
+    Raises:
+        NotFoundError: If fingerprint survey does not exist.
+    """
+    fingerprint = await get_fingerprint_by_id(db, fingerprint_id)
+    was_active = (fingerprint.status == FingerprintStatus.ACTIVE)
+
+    await db.delete(fingerprint)
+    await db.commit()
+
+    if was_active:
+        from app.services.localization_service import invalidate_fingerprint_cache
+
+        invalidate_fingerprint_cache()
+
+    logger.info("Deleted fingerprint survey %s (was_active=%s)", fingerprint_id, was_active)
+    return True

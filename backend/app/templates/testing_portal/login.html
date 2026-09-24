@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Testing Portal Login | ChildTrack Tether Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(16, 24, 40, 0.85);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --primary: #0284c7;
+      --primary-glow: #38bdf8;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --danger: #ef4444;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background-image: 
+        radial-gradient(circle at 20% 20%, rgba(2, 132, 199, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.12) 0%, transparent 40%);
+    }
+    .login-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 20px 40px -15px rgba(0,0,0,0.7), 0 0 30px rgba(56, 189, 248, 0.1);
+      backdrop-filter: blur(16px);
+      position: relative;
+    }
+    .badge-lab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--primary-glow);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+    }
+    .badge-pulse {
+      width: 8px; height: 8px; background: var(--primary-glow); border-radius: 50%;
+      box-shadow: 0 0 10px var(--primary-glow);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+    h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p.subtitle { color: var(--text-sub); font-size: 0.88rem; margin-bottom: 2rem; line-height: 1.4; }
+    .form-group { margin-bottom: 1.25rem; text-align: left; }
+    label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-sub); margin-bottom: 0.5rem; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    input:focus {
+      border-color: var(--primary-glow);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.85rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35);
+      transition: all 0.2s ease;
+      margin-top: 0.5rem;
+    }
+    .btn-submit:hover {
+      background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+      transform: translateY(-1px);
+    }
+    .credential-hint {
+      margin-top: 1.5rem;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .credential-hint code { font-family: 'JetBrains Mono', monospace; color: var(--primary-glow); }
+    .btn-quick-fill {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--primary-glow);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-quick-fill:hover { background: rgba(56, 189, 248, 0.25); }
+    .error-box {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="badge-lab">
+      <span class="badge-pulse"></span>
+      ChildTrack Proximity Lab
+    </div>
+    <h1>Master-Slave Portal</h1>
+    <p class="subtitle">Authenticate with dedicated testing credentials to view real-time ESP tether telemetry.</p>
+
+    {% if error_message %}
+      <div class="error-box">
+        {{ error_message }}
+      </div>
+    {% endif %}
+
+    <form method="POST" action="/testing-portal/login">
+      <div class="form-group">
+        <label for="username">Testing Username</label>
+        <input type="text" id="username" name="username" value="{{ username or '' }}" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Testing Password</label>
+        <input type="password" id="password" name="password" required>
+      </div>
+
+      <button type="submit" class="btn-submit">Enter Testing Radar &rarr;</button>
+    </form>
+
+    <div class="credential-hint">
+      <div>Default: <code>tester</code> / <code>Test@12345</code></div>
+      <button type="button" class="btn-quick-fill" onclick="quickFill()">Quick Fill</button>
+    </div>
+  </div>
+
+  <script>
+    function quickFill() {
+      document.getElementById('username').value = 'tester';
+      document.getElementById('password').value = 'Test@12345';
+    }
+  </script>
+</body>
+</html>

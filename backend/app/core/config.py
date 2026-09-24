@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     )
     MQTT_KEEPALIVE: int = Field(default=60, description="MQTT keepalive interval in seconds")
 
+    # Proximity Testing Portal Configuration (Master-Slave Tether)
+    TESTING_PORTAL_ENABLED: bool = True
+    TESTING_PORTAL_USERNAME: str = "tester"
+    TESTING_PORTAL_PASSWORD: str = "Test@12345"
+    MQTT_TOPIC_TESTING_TETHER: str = Field(
+        default="childtrack/testing/tether", description="MQTT topic for testing tether telemetry"
+    )
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
         env_file_encoding="utf-8",

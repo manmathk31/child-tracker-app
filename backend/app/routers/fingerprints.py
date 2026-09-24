@@ -225,6 +225,26 @@ async def fingerprint_detail_page(
     return templates.TemplateResponse(request=request, name="fingerprints/detail.html", context=context)
 
 
+@router.post("/fingerprints/{fingerprint_id}/delete", response_class=HTMLResponse, include_in_schema=False)
+async def delete_fingerprint_form(
+    fingerprint_id: uuid.UUID,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Delete a fingerprint survey and redirect to surveys list (Admin only)."""
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+    if current_user.role != UserRole.ADMIN:
+        return RedirectResponse(url="/fingerprints", status_code=302)
+
+    try:
+        await fingerprint_service.delete_fingerprint(db, fingerprint_id)
+    except NotFoundError:
+        pass
+
+    return RedirectResponse(url="/fingerprints", status_code=status.HTTP_303_SEE_OTHER)
+
+
 # ==============================================================================
 # REST API Endpoints (/api/v1/fingerprints)
 # ==============================================================================
@@ -358,3 +378,18 @@ async def api_activate_fingerprint(
         updated_at=fp.updated_at,
         ap_stats=stats_out,
     )
+
+
+@router.delete(
+    "/api/v1/fingerprints/{fingerprint_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a calibration survey",
+)
+async def api_delete_fingerprint(
+    fingerprint_id: uuid.UUID,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Delete a calibration survey and all its samples (Admin only)."""
+    await fingerprint_service.delete_fingerprint(db, fingerprint_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
