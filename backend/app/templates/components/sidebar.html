@@ -1,0 +1,87 @@
+{# Desktop Sidebar Navigation Component (Role-Aware) #}
+<aside class="app-sidebar" aria-label="Main Navigation">
+  <div class="sidebar-header">
+    <img src="/static/assets/anveshak_logo.png" alt="Anveshak Logo" style="width: 54px; height: 54px; object-fit: cover; border-radius: 8px; margin-left: -6px; margin-right: 4px;" />
+    <div>
+      <div class="sidebar-title">Anveshak</div>
+      <div class="sidebar-subtitle">Safety &amp; Monitoring</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    {# Dashboard: Available to all authenticated roles #}
+    <a href="/dashboard" class="sidebar-link {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+      </svg>
+      <span>Dashboard</span>
+    </a>
+
+    {# Students: Available to both teachers and admins #}
+    <a href="/students" class="sidebar-link {% if active_page == 'students' %}active{% endif %}" id="nav-students">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+      </svg>
+      <span>Students</span>
+    </a>
+
+    {# Safety Alerts: Available to all authenticated roles #}
+    <a href="/alerts" class="sidebar-link {% if active_page == 'alerts' %}active{% endif %}" id="nav-alerts">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+      </svg>
+      <span>Alerts</span>
+    </a>
+
+    {# Configuration Domains: Visible exclusively to Administrators #}
+    {% if current_user and current_user.role.value == 'admin' %}
+      <div style="font-size: 10px; text-transform: uppercase; color: var(--color-text-muted); font-weight: var(--font-weight-bold); letter-spacing: 0.08em; padding: var(--space-3) var(--space-3) var(--space-1); margin-top: var(--space-2);">
+        Configuration
+      </div>
+
+      <a href="/zones" class="sidebar-link {% if active_page == 'zones' %}active{% endif %}" id="nav-zones">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+        </svg>
+        <span>Zones</span>
+      </a>
+
+      <a href="/devices" class="sidebar-link {% if active_page == 'devices' %}active{% endif %}" id="nav-devices">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+        </svg>
+        <span>Devices</span>
+      </a>
+
+      <a href="/settings" class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" id="nav-settings">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span>Settings</span>
+      </a>
+    {% endif %}
+  </nav>
+
+  {# Sidebar User Profile & Logout #}
+  <div class="sidebar-footer">
+    {% if current_user %}
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
+        <div style="overflow: hidden;">
+          <div style="font-weight: var(--font-weight-semibold); color: var(--color-text-primary); font-size: var(--font-size-xs); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+            {{ current_user.full_name }}
+          </div>
+          <span style="display: inline-block; font-size: 10px; text-transform: uppercase; background-color: var(--color-primary-light); color: var(--color-primary); padding: 1px 6px; border-radius: var(--radius-sm); font-weight: var(--font-weight-bold); margin-top: 2px;">
+            {{ current_user.role.value }}
+          </span>
+        </div>
+        <a href="/logout" id="btn-logout" title="Sign Out" style="color: var(--color-text-muted); font-size: var(--font-size-xs); display: flex; align-items: center; gap: 2px; padding: var(--space-1); border-radius: var(--radius-sm);">
+          <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
+        </a>
+      </div>
+    {% endif %}
+    <div>ChildTrack v{{ app_version | default("0.1.0") }}</div>
+  </div>
+</aside>

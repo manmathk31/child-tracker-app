@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Location History: {{ student.full_name }}{% endblock %}
+{% block page_title %}{{ student.full_name }} — Movement Timeline{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  {# Top Navigation Links #}
+  <div style="margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+    <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+      <a href="/students/{{ student.id }}" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+        &larr; Back to Student Profile
+      </a>
+      <span style="color: var(--color-border);">|</span>
+      <a href="/students" style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+        All Students
+      </a>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: var(--space-2);">
+      <button onclick="window.location.reload();" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px;">
+        ↻ Refresh Timeline
+      </button>
+    </div>
+  </div>
+
+  {# Student Status Summary Banner #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4);">
+      <div style="display: flex; align-items: center; gap: var(--space-4);">
+        <div style="width: 56px; height: 56px; border-radius: var(--radius-full); background: var(--color-primary-light); color: var(--color-primary); font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); display: flex; align-items: center; justify-content: center;">
+          {{ student.full_name[:2].upper() }}
+        </div>
+        <div>
+          <h2 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin: 0;">
+            {{ student.full_name }}
+          </h2>
+          <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+            ID: <strong>{{ student.student_code }}</strong> • Class: <strong>{{ student.class_name }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
+        <div>
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Current Location</div>
+          <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin-top: 2px;">
+            {% if live_info.current_zone_name %}
+              <span style="color: var(--color-success);">📍 {{ live_info.current_zone_name }}</span>
+            {% else %}
+              <span style="color: var(--color-warning);">⚠️ Unknown / Low Confidence</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Confidence</div>
+          <div style="margin-top: 2px;">
+            <span class="status-pill {% if live_info.confidence >= 0.70 %}online{% elif live_info.confidence >= 0.45 %}attention{% else %}offline{% endif %}">
+              {{ (live_info.confidence * 100)|round|int }}%
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Assigned Tag</div>
+          <div style="font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); margin-top: 2px;">
+            {% if live_info.device_code %}
+              <span style="font-family: monospace;">{{ live_info.device_code }}</span>
+              {% if live_info.battery_percent is not none %}
+                (🔋 {{ live_info.battery_percent }}%)
+              {% endif %}
+            {% else %}
+              <span style="color: var(--color-text-muted);">Unpaired</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Chronological Movement Timeline Card #}
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3);">
+      <div>
+        <h3 class="card-title">Movement & Positioning Breadcrumbs</h3>
+        <p class="card-subtitle">Chronological indoor localization audit trail recorded by the localization engine. Auto-pruned to last 30 records.</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+          Showing {{ history|length }} record{{ "s" if history|length != 1 else "" }}
+        </span>
+        {% if history|length > 0 %}
+          <form action="/students/{{ student.id }}/history/clear" method="POST" onsubmit="return confirm('Delete all location history for this student?');" style="margin: 0;">
+            <button type="submit" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; color: var(--color-danger); border-color: var(--color-danger); background: transparent;">
+              Clear History
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if history and history|length > 0 %}
+      <div style="padding: var(--space-4); position: relative;">
+        {# Vertical Line #}
+        <div style="position: absolute; left: 40px; top: 24px; bottom: 24px; width: 2px; background: var(--color-border-subtle); z-index: 0;"></div>
+
+        <ul style="list-style: none; padding: 0; margin: 0; position: relative; z-index: 1;">
+          {% for rec in history %}
+            <li style="display: flex; gap: var(--space-4); margin-bottom: var(--space-4);">
+              {# Node #}
+              <div style="flex-shrink: 0; width: 48px; display: flex; flex-direction: column; align-items: center;">
+                <div style="width: 14px; height: 14px; border-radius: var(--radius-full); background: {% if loop.first %}var(--color-primary){% else %}var(--color-bg-surface){% endif %}; border: 2px solid {% if loop.first %}var(--color-primary){% else %}var(--color-border){% endif %}; margin-top: 4px;"></div>
+                {% if loop.first %}
+                  <div style="font-size: 10px; color: var(--color-primary); font-weight: var(--font-weight-bold); margin-top: 4px;">LATEST</div>
+                {% endif %}
+              </div>
+              
+              {# Content #}
+              <div style="flex-grow: 1; background: var(--color-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-3); box-shadow: var(--shadow-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-2);">
+                  <div>
+                    {% if rec.zone %}
+                      <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+                        📍 {{ rec.zone.name }}
+                      </div>
+                    {% else %}
+                      <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); color: var(--color-warning);">
+                        ⚠️ Unknown / Roaming
+                      </div>
+                    {% endif %}
+                    <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 2px; font-family: monospace;">
+                      {{ rec.recorded_at.strftime('%I:%M:%S %p • %b %d') if rec.recorded_at else '—' }}
+                    </div>
+                  </div>
+                  
+                  <div style="display: flex; align-items: center; gap: var(--space-2);">
+                    <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">Confidence:</span>
+                    <span class="status-pill {% if rec.confidence >= 0.70 %}online{% elif rec.confidence >= 0.45 %}attention{% else %}offline{% endif %}" style="font-size: 11px; padding: 2px 6px;">
+                      {{ (rec.confidence * 100)|round|int }}%
+                    </span>
+                  </div>
+                </div>
+
+                <div style="background: var(--color-bg-subtle); border-radius: var(--radius-sm); padding: var(--space-2); margin-top: var(--space-2); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--color-text-secondary);">
+                  <div>
+                    Detected by Scanner: <strong style="font-family: monospace;">{{ rec.raw_scan.scanner if rec.raw_scan and rec.raw_scan.scanner else 'Unknown' }}</strong>
+                  </div>
+                  <div>
+                    RSSI: <strong style="color: {% if rec.raw_scan and rec.raw_scan.rssi and rec.raw_scan.rssi >= -65 %}var(--color-success){% elif rec.raw_scan and rec.raw_scan.rssi and rec.raw_scan.rssi >= -80 %}var(--color-warning){% else %}var(--color-danger){% endif %};">{{ rec.raw_scan.rssi if rec.raw_scan and rec.raw_scan.rssi else '—' }} dBm</strong>
+                  </div>
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      {% with empty_title="No location breadcrumbs recorded",
+              empty_message="When this student's wearable tag transmits telemetry pings, real-time indoor room transitions and timestamps will automatically appear here.",
+              empty_action_url=None,
+              empty_action_label=None %}
+        {% include "components/empty_state.html" %}
+      {% endwith %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

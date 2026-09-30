@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}School Zones{% endblock %}
+{% block page_title %}School Zones{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-3);">
+    <div>
+      <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+        Configured Zones
+      </h2>
+      <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+        Physical locations mapped for child tracking and occupancy monitoring.
+      </p>
+    </div>
+    {% if current_user and current_user.role.value == 'admin' %}
+      <a href="/zones/new" class="btn btn-primary" id="btn-create-zone">
+        <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>Add Zone</span>
+      </a>
+    {% endif %}
+  </div>
+
+  {% if zones and zones|length > 0 %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4);">
+      {% for zone in zones %}
+        <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2);">
+              <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--color-text-primary);">
+                <a href="/zones/{{ zone.id }}">{{ zone.name }}</a>
+              </h3>
+              <span class="status-pill {% if zone.is_active %}online{% else %}offline{% endif %}" style="font-size: 10px; min-height: 24px; padding: 0 8px;">
+                {{ "Active" if zone.is_active else "Inactive" }}
+              </span>
+            </div>
+
+            {% if zone.building or zone.floor %}
+              <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: var(--space-3); display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                {% if zone.building %}
+                  <span style="background: var(--color-surface-hover); padding: 2px 6px; border-radius: var(--radius-sm);">
+                    🏢 {{ zone.building }}
+                  </span>
+                {% endif %}
+                {% if zone.floor %}
+                  <span style="background: var(--color-surface-hover); padding: 2px 6px; border-radius: var(--radius-sm);">
+                    📍 {{ zone.floor }}
+                  </span>
+                {% endif %}
+              </div>
+            {% endif %}
+
+            <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-4); line-height: 1.4;">
+              {{ zone.description or "No description provided." }}
+            </p>
+          </div>
+
+          <div style="padding-top: var(--space-3); border-top: 1px solid var(--color-border-subtle); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+              {{ zone.scanner_devices|length }} Scanner{{ "s" if zone.scanner_devices|length != 1 else "" }}
+            </span>
+            <div style="display: flex; gap: var(--space-2);">
+              <a href="/zones/{{ zone.id }}" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+                View
+              </a>
+              {% if current_user and current_user.role.value == 'admin' %}
+                <a href="/zones/{{ zone.id }}/edit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+                  Edit
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% with empty_title="No zones configured yet",
+            empty_message="School zones define physical areas where students are tracked. Create your first zone to begin setup.",
+            empty_action_url="/zones/new",
+            empty_action_label="Add First Zone",
+            empty_action_id="btn-empty-create-zone" %}
+      {% include "components/empty_state.html" %}
+    {% endwith %}
+  {% endif %}
+</div>
+{% endblock %}

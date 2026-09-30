@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "childtrack"
+version = "0.1.0"
+description = "Indoor child-safety tracking and monitoring platform for schools"
+readme = "../README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "ChildTrack Team" }
+]
+dependencies = [
+    "fastapi>=0.110.0,<1.0.0",
+    "uvicorn[standard]>=0.28.0,<1.0.0",
+    "pydantic>=2.6.0,<3.0.0",
+    "pydantic-settings>=2.2.0,<3.0.0",
+    "sqlalchemy>=2.0.28,<3.0.0",
+    "alembic>=1.13.1,<2.0.0",
+    "asyncpg>=0.29.0,<1.0.0",
+    "aiosqlite>=0.20.0,<1.0.0",
+    "jinja2>=3.1.3,<4.0.0",
+    "python-multipart>=0.0.9,<1.0.0",
+    "passlib[bcrypt]>=1.7.4,<2.0.0",
+    "bcrypt>=4.0.0,<5.0.0",
+    "python-jose[cryptography]>=3.3.0,<4.0.0",
+    "apscheduler>=3.10.4,<4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27.0,<1.0.0",
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-asyncio>=0.23.0,<1.0.0",
+    "ruff>=0.3.0,<1.0.0",
+    "black>=24.2.0,<25.0.0",
+    "isort>=5.13.0,<6.0.0",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]

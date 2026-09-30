@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Edit Student: " + student.full_name if student else "Enroll New Student" }}{% endblock %}
+{% block page_title %}{{ "Edit Student" if student else "Enroll Student" }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 650px; margin: 0 auto;">
+  <div style="margin-bottom: var(--space-4);">
+    <a href="/students" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+      &larr; Back to Students Roster
+    </a>
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: var(--space-6);">
+    <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-4); color: var(--color-text-primary);">
+      {{ "Edit Student Profile" if student else "Enroll Student Profile" }}
+    </h2>
+
+    {% if error_message %}
+      <div style="background-color: var(--color-status-red-bg); border: 1px solid var(--color-status-red-border); color: var(--color-status-red); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--font-size-sm); margin-bottom: var(--space-4);" role="alert">
+        {{ error_message }}
+      </div>
+    {% endif %}
+
+    <form action="{{ '/students/' + student.id|string + '/edit' if student else '/students/new' }}" method="POST" id="student-form">
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="student_code" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Student Code <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="student_code"
+            name="student_code"
+            value="{{ student.student_code if student else (form_data.student_code if form_data else '') }}"
+            required
+            autofocus
+            placeholder="e.g. STU-101"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+
+        <div>
+          <label for="full_name" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Full Name <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="full_name"
+            name="full_name"
+            value="{{ student.full_name if student else (form_data.full_name if form_data else '') }}"
+            required
+            placeholder="e.g. Alice Johnson"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="class_name" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Class / Grade <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="class_name"
+            name="class_name"
+            value="{{ student.class_name if student else (form_data.class_name if form_data else '') }}"
+            required
+            placeholder="e.g. Grade 3A"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+
+        <div>
+          <label for="age" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Age <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="number"
+            id="age"
+            name="age"
+            min="2"
+            max="25"
+            value="{{ student.age if student else (form_data.age if form_data else 8) }}"
+            required
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+      </div>
+
+      {# Wearable Assignment #}
+      <div style="margin-bottom: var(--space-4);">
+        <label for="device_id" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+          Assign ESP32 Wearable Tag
+        </label>
+        <select
+          id="device_id"
+          name="device_id"
+          style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit; background-color: var(--color-surface);"
+        >
+          <option value="">-- No Wearable Assigned --</option>
+          {% for dev in available_devices %}
+            <option value="{{ dev.id }}" {% if student and student.device and student.device.id == dev.id %}selected{% endif %}>
+              {{ dev.device_code }} ({{ dev.mac_address }} - 🔋{{ dev.battery_percent }}%)
+            </option>
+          {% endfor %}
+        </select>
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 4px;">
+          Only unassigned wearables are listed.
+        </p>
+      </div>
+
+      {# Allowed Zones Permissions #}
+      <div style="margin-bottom: var(--space-6);">
+        <label style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-2);">
+          Authorized School Zones (Whitelisted)
+        </label>
+        {% if all_zones and all_zones|length > 0 %}
+          <div style="max-height: 180px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-surface);">
+            {% for z in all_zones %}
+              <label style="display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; cursor: pointer; min-height: 32px;">
+                <input
+                  type="checkbox"
+                  name="allowed_zone_ids"
+                  value="{{ z.id }}"
+                  style="width: 18px; height: 18px; accent-color: var(--color-primary);"
+                  {% if student and z in student.allowed_zones %}checked{% endif %}
+                />
+                <span style="font-size: var(--font-size-sm); color: var(--color-text-primary);">
+                  {{ z.name }} {% if z.building %}<span style="color: var(--color-text-muted);">({{ z.building }})</span>{% endif %}
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+          <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 4px;">
+            Entering zones not selected here will immediately raise an "Out of Zone" security alert.
+          </p>
+        {% else %}
+          <div style="font-size: var(--font-size-sm); color: var(--color-text-muted); padding: var(--space-3); border: 1px dashed var(--color-border); border-radius: var(--radius-md);">
+            No zones configured yet. <a href="/zones/new">Create a zone</a> first.
+          </div>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; gap: var(--space-3); justify-content: flex-end;">
+        <a href="/students" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-student">
+          {{ "Update Student" if student else "Enroll Student" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

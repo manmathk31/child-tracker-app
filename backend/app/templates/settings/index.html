@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings{% endblock %}
+{% block page_title %}System Settings{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+  <div style="margin-bottom: var(--space-5);">
+    <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary);">
+      Organization &amp; Safety Settings
+    </h2>
+    <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
+      Configure institution identifiers, tracking thresholds, and emergency alert triggers.
+    </p>
+  </div>
+
+  {# School Details Card #}
+  <div class="card" style="margin-bottom: var(--space-6); padding: var(--space-6);">
+    <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-4); color: var(--color-text-primary);">
+      School Information
+    </h3>
+
+    <form action="/settings/school" method="POST" id="school-settings-form">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="school_name" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            School / Institution Name <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="school_name"
+            name="school_name"
+            value="{{ school.school_name }}"
+            required
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+
+        <div>
+          <label for="building_name" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Campus / Building Label <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <input
+            type="text"
+            id="building_name"
+            name="building_name"
+            value="{{ school.building_name }}"
+            required
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+      </div>
+
+      <div style="margin-bottom: var(--space-5);">
+        <label for="timezone" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+          System Timezone
+        </label>
+        <input
+          type="text"
+          id="timezone"
+          name="timezone"
+          value="{{ school.timezone }}"
+          required
+          placeholder="e.g. UTC, Asia/Kolkata, America/New_York"
+          style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+        />
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button type="submit" class="btn btn-primary" id="btn-save-school">
+          Save Organization Settings
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {# Alert Thresholds Card #}
+  <div class="card" style="padding: var(--space-6);">
+    <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-4); color: var(--color-text-primary);">
+      Safety Alert Thresholds
+    </h3>
+
+    <form action="/settings/alerts" method="POST" id="alert-settings-form">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="offline_threshold_minutes" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Offline Timeout (Minutes)
+          </label>
+          <input
+            type="number"
+            id="offline_threshold_minutes"
+            name="offline_threshold_minutes"
+            min="1"
+            max="120"
+            value="{{ alerts.offline_threshold_minutes }}"
+            required
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+          <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px;">
+            Triggers warning when tag isn't seen for this duration.
+          </p>
+        </div>
+
+        <div>
+          <label for="critical_offline_threshold_minutes" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Critical Missing Cutoff (Minutes)
+          </label>
+          <input
+            type="number"
+            id="critical_offline_threshold_minutes"
+            name="critical_offline_threshold_minutes"
+            min="1"
+            max="240"
+            value="{{ alerts.critical_offline_threshold_minutes }}"
+            required
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+          <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px;">
+            Escalates to critical missing student alert.
+          </p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="low_battery_percent" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Low Battery Alarm Level (%)
+          </label>
+          <input
+            type="number"
+            id="low_battery_percent"
+            name="low_battery_percent"
+            min="5"
+            max="50"
+            value="{{ alerts.low_battery_percent }}"
+            required
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+
+        <div>
+          <label for="min_localization_confidence" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Minimum Confidence Threshold (0.1 - 1.0)
+          </label>
+          <input
+            type="number"
+            step="0.05"
+            id="min_localization_confidence"
+            name="min_localization_confidence"
+            min="0.1"
+            max="1.0"
+            value="{{ alerts.min_localization_confidence }}"
+            required
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); font-family: inherit;"
+          />
+        </div>
+      </div>
+
+      <div style="margin-bottom: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2);">
+        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; min-height: 32px;">
+          <input
+            type="checkbox"
+            name="restricted_zone_alerts_enabled"
+            value="true"
+            style="width: 18px; height: 18px; accent-color: var(--color-primary);"
+            {% if alerts.restricted_zone_alerts_enabled %}checked{% endif %}
+          />
+          <span style="font-size: var(--font-size-sm); color: var(--color-text-primary);">
+            Enable Out-of-Zone / Restricted Area Alerts
+          </span>
+        </label>
+
+        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; min-height: 32px;">
+          <input
+            type="checkbox"
+            name="sos_alerts_enabled"
+            value="true"
+            style="width: 18px; height: 18px; accent-color: var(--color-primary);"
+            {% if alerts.sos_alerts_enabled %}checked{% endif %}
+          />
+          <span style="font-size: var(--font-size-sm); color: var(--color-text-primary);">
+            Enable Emergency Hardware SOS Alerts
+          </span>
+        </label>
+
+        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; min-height: 32px;">
+          <input
+            type="checkbox"
+            name="fall_detection_enabled"
+            value="true"
+            style="width: 18px; height: 18px; accent-color: var(--color-primary);"
+            {% if alerts.fall_detection_enabled %}checked{% endif %}
+          />
+          <span style="font-size: var(--font-size-sm); color: var(--color-text-primary);">
+            Enable Fall Detection Sensor Alerts
+          </span>
+        </label>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button type="submit" class="btn btn-primary" id="btn-save-alerts">
+          Save Alert Thresholds
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

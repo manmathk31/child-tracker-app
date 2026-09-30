@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Zone: {{ zone.name }}{% endblock %}
+{% block page_title %}{{ zone.name }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div style="margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+    <a href="/zones" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
+      &larr; Back to Zones
+    </a>
+    {% if current_user and current_user.role.value == 'admin' %}
+      <div style="display: flex; gap: var(--space-2);">
+        <a href="/zones/{{ zone.id }}/edit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px;">
+          Edit Zone
+        </a>
+        <a href="/devices/new?type=SCANNER&zone_id={{ zone.id }}" class="btn btn-primary" style="font-size: var(--font-size-xs); min-height: 36px;">
+          + Add Scanner Device
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Zone Metadata Card #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header">
+      <h2 class="card-title">Zone Overview</h2>
+      <span class="status-pill {% if zone.is_active %}online{% else %}offline{% endif %}">
+        {{ "Active" if zone.is_active else "Inactive" }}
+      </span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-3);">
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Building</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
+          {{ zone.building or "Not specified" }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Floor</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
+          {{ zone.floor or "Not specified" }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Scanner Devices</div>
+        <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
+          {{ zone.scanner_devices|length }} Scanner{{ "s" if zone.scanner_devices|length != 1 else "" }}
+        </div>
+      </div>
+    </div>
+    {% if zone.description %}
+      <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle);">
+        {{ zone.description }}
+      </p>
+    {% endif %}
+  </div>
+
+  {# Associated Access Points #}
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-header">
+      <h2 class="card-title">Deployed Master Scanners</h2>
+      {% if current_user and current_user.role.value == 'admin' %}
+        <a href="/devices/new?type=SCANNER&zone_id={{ zone.id }}" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+          Attach Scanner
+        </a>
+      {% endif %}
+    </div>
+
+    {% if zone.scanner_devices and zone.scanner_devices|length > 0 %}
+      <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+        {% for scanner in zone.scanner_devices %}
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-3); background: var(--color-surface-hover); border-radius: var(--radius-md);">
+            <div>
+              <div style="font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); color: var(--color-text-primary);">
+                {{ scanner.device_code }}
+              </div>
+              <div style="font-family: monospace; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                {{ scanner.mac_address }}
+              </div>
+            </div>
+            <span class="status-pill {% if scanner.status.value == 'online' %}online{% else %}offline{% endif %}" style="font-size: 10px; min-height: 24px;">
+              {{ "Online" if scanner.status.value == 'online' else "Offline" }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+      {% with empty_title="No Scanner Devices registered in this zone",
+              empty_message="To enable student tracking in this zone, at least one Master Scanner ESP should be registered.",
+              empty_action_url="/devices/new?type=SCANNER&zone_id=" + zone.id|string,
+              empty_action_label="Register First Scanner" %}
+        {% include "components/empty_state.html" %}
+      {% endwith %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
