@@ -130,6 +130,10 @@ async def get_dashboard_live_payload(
         current_zone_name = latest_rec.zone.name if (latest_rec and latest_rec.zone) else None
         confidence = latest_rec.confidence if latest_rec else 0.0
 
+        if confidence < alert_settings.min_localization_confidence:
+            current_zone_id = None
+            current_zone_name = None
+
         # Allowed safe zones whitelist check
         allowed_ids = {z.id for z in s.allowed_zones}
         is_restricted = False

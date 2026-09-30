@@ -1,10 +1,5 @@
 """Pydantic schemas package."""
 
-from app.schemas.access_point import (
-    AccessPointCreate,
-    AccessPointResponse,
-    AccessPointUpdate,
-)
 from app.schemas.alert import (
     AlertAcknowledgeIn,
     AlertCountResponse,
@@ -19,22 +14,13 @@ from app.schemas.dashboard import (
     ZoneOccupancy,
 )
 from app.schemas.device import DeviceCreate, DeviceResponse, DeviceUpdate
-from app.schemas.fingerprint import (
-    CalibrationBatchIn,
-    FingerprintAPStatResponse,
-    FingerprintCreate,
-    FingerprintDetailResponse,
-    FingerprintResponse,
-    FingerprintUpdate,
-    ScanSampleIn,
-)
 from app.schemas.location import (
     LocationEstimate,
     LocationRecordResponse,
     StudentLiveLocationResponse,
-    TelemetryIngestIn,
+    MasterTelemetryIngest,
     TelemetryIngestResponse,
-    TelemetryScanItem,
+    TagObservation,
 )
 from app.schemas.settings import (
     AlertSettingsResponse,
@@ -64,9 +50,6 @@ __all__ = [
     "ZoneCreate",
     "ZoneUpdate",
     "ZoneResponse",
-    "AccessPointCreate",
-    "AccessPointUpdate",
-    "AccessPointResponse",
     "DeviceCreate",
     "DeviceUpdate",
     "DeviceResponse",
@@ -77,15 +60,8 @@ __all__ = [
     "SchoolSettingsResponse",
     "AlertSettingsUpdate",
     "AlertSettingsResponse",
-    "ScanSampleIn",
-    "CalibrationBatchIn",
-    "FingerprintCreate",
-    "FingerprintUpdate",
-    "FingerprintResponse",
-    "FingerprintDetailResponse",
-    "FingerprintAPStatResponse",
-    "TelemetryScanItem",
-    "TelemetryIngestIn",
+    "TagObservation",
+    "MasterTelemetryIngest",
     "TelemetryIngestResponse",
     "LocationEstimate",
     "LocationRecordResponse",

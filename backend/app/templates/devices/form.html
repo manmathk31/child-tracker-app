@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}{{ "Edit Wearable: " + device.device_code if device else "Register Wearable" }}{% endblock %}
-{% block page_title %}{{ "Edit Wearable" if device else "Register Wearable" }}{% endblock %}
+{% block title %}{{ "Edit Device: " + device.device_code if device else "Register Device" }}{% endblock %}
+{% block page_title %}{{ "Edit Device" if device else "Register Device" }}{% endblock %}
 
 {% block content %}
 <div style="max-width: 600px; margin: 0 auto;">
   <div style="margin-bottom: var(--space-4);">
     <a href="/devices" style="font-size: var(--font-size-sm); color: var(--color-primary); display: inline-flex; align-items: center; gap: 4px;">
-      &larr; Back to Wearables
+      &larr; Back to Devices
     </a>
   </div>
 
   <div class="card" style="box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: var(--space-6);">
     <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-4); color: var(--color-text-primary);">
-      {{ "Edit Wearable Details" if device else "Enroll ESP32 Hardware Tag" }}
+      {{ "Edit Device Details" if device else "Register New Device" }}
     </h2>
 
     {% if error_message %}
@@ -23,6 +23,39 @@
     {% endif %}
 
     <form action="{{ '/devices/' + device.id|string + '/edit' if device else '/devices/new' }}" method="POST" id="device-form">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+        <div>
+          <label for="type" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Device Type <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <select
+            id="type"
+            name="type"
+            required
+            onchange="toggleZoneField()"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); background: var(--color-surface);"
+          >
+            <option value="wearable" {% if (device and device.type.value == 'wearable') or type|lower == 'wearable' %}selected{% endif %}>Wearable Tag (Student)</option>
+            <option value="scanner" {% if (device and device.type.value == 'scanner') or type|lower == 'scanner' %}selected{% endif %}>Master Scanner (Zone)</option>
+          </select>
+        </div>
+
+        <div id="zone-container" style="{% if (device and device.type.value == 'wearable') or type|lower == 'wearable' %}display: none;{% endif %}">
+          <label for="assigned_zone_id" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
+            Assigned Zone <span style="color: var(--color-status-red);">*</span>
+          </label>
+          <select
+            id="assigned_zone_id"
+            name="assigned_zone_id"
+            style="width: 100%; min-height: var(--min-touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--font-size-base); background: var(--color-surface);"
+          >
+            <option value="">-- Select Zone --</option>
+            {% for z in zones %}
+              <option value="{{ z.id }}" {% if (device and device.assigned_zone_id == z.id) or zone_id|string == z.id|string %}selected{% endif %}>{{ z.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
         <div>
           <label for="device_code" style="display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-primary); margin-bottom: var(--space-1);">
@@ -92,10 +125,45 @@
       <div style="display: flex; gap: var(--space-3); justify-content: flex-end;">
         <a href="/devices" class="btn btn-secondary">Cancel</a>
         <button type="submit" class="btn btn-primary" id="btn-save-device">
-          {{ "Update Wearable" if device else "Register Wearable" }}
+          {{ "Update Device" if device else "Register Device" }}
         </button>
       </div>
     </form>
+    
+    {% if device %}
+    <div style="margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle); display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3 style="font-size: var(--font-size-sm); color: var(--color-text-primary); margin-bottom: 2px;">Danger Zone</h3>
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-muted);">Permanently unenroll this device from the system.</p>
+      </div>
+      <form action="/devices/{{ device.id }}/delete" method="POST" onsubmit="return confirm('Are you sure you want to delete this device? This action cannot be undone.');">
+        <button type="submit" class="btn btn-secondary" style="color: var(--color-status-red); border-color: var(--color-status-red-border); background: #fff5f5;">
+          Delete Device
+        </button>
+      </form>
+    </div>
+    {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function toggleZoneField() {
+    const typeSelect = document.getElementById('type');
+    const zoneContainer = document.getElementById('zone-container');
+    const zoneSelect = document.getElementById('assigned_zone_id');
+    
+    if (typeSelect.value === 'scanner') {
+      zoneContainer.style.display = 'block';
+      zoneSelect.required = true;
+    } else {
+      zoneContainer.style.display = 'none';
+      zoneSelect.required = false;
+      zoneSelect.value = '';
+    }
+  }
+  // Run on load
+  document.addEventListener('DOMContentLoaded', toggleZoneField);
+</script>
 {% endblock %}

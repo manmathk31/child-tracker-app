@@ -17,7 +17,7 @@ logger = logging.getLogger("childtrack.device_service")
 
 async def list_devices(db: AsyncSession, include_inactive: bool = False) -> Sequence[Device]:
     """List all registered wearables."""
-    stmt = select(Device).options(selectinload(Device.student))
+    stmt = select(Device).options(selectinload(Device.student), selectinload(Device.assigned_zone))
     if not include_inactive:
         stmt = stmt.where(Device.is_active == True)  # noqa: E712
     stmt = stmt.order_by(Device.device_code)
@@ -27,7 +27,7 @@ async def list_devices(db: AsyncSession, include_inactive: bool = False) -> Sequ
 
 async def get_device_by_id(db: AsyncSession, device_id: uuid.UUID) -> Device:
     """Retrieve a device by UUID."""
-    stmt = select(Device).options(selectinload(Device.student)).where(Device.id == device_id)
+    stmt = select(Device).options(selectinload(Device.student), selectinload(Device.assigned_zone)).where(Device.id == device_id)
     result = await db.execute(stmt)
     device = result.scalar_one_or_none()
     if not device:
@@ -51,28 +51,52 @@ async def get_device_by_mac(db: AsyncSession, mac_address: str) -> Optional[Devi
 
 
 async def create_device(db: AsyncSession, device_in: DeviceCreate) -> Device:
-    """Register a new ESP32 wearable tag."""
+    """Register a new ESP32 wearable tag or scanner."""
     clean_code = device_in.device_code.strip().upper()
     clean_mac = device_in.mac_address.replace("-", ":").upper()
 
-    if await get_device_by_code(db, clean_code):
+    existing_by_code = await get_device_by_code(db, clean_code)
+    if existing_by_code and existing_by_code.is_active:
         raise ConflictError(f"Device code '{clean_code}' is already registered.")
 
-    if await get_device_by_mac(db, clean_mac):
+    existing_by_mac = await get_device_by_mac(db, clean_mac)
+    if existing_by_mac and existing_by_mac.is_active:
         raise ConflictError(f"MAC address '{clean_mac}' is already registered.")
 
-    device = Device(
-        device_code=clean_code,
-        mac_address=clean_mac,
-        battery_percent=device_in.battery_percent,
-        firmware_version=device_in.firmware_version.strip() if device_in.firmware_version else None,
-        status=DeviceStatus.OFFLINE,
-        is_active=True,
-    )
-    db.add(device)
+    if existing_by_code and not existing_by_code.is_active:
+        device = existing_by_code
+        device.mac_address = clean_mac
+        device.battery_percent = device_in.battery_percent
+        device.firmware_version = device_in.firmware_version.strip() if device_in.firmware_version else None
+        device.type = device_in.type
+        device.assigned_zone_id = device_in.assigned_zone_id
+        device.status = DeviceStatus.OFFLINE
+        device.is_active = True
+    elif existing_by_mac and not existing_by_mac.is_active:
+        device = existing_by_mac
+        device.device_code = clean_code
+        device.battery_percent = device_in.battery_percent
+        device.firmware_version = device_in.firmware_version.strip() if device_in.firmware_version else None
+        device.type = device_in.type
+        device.assigned_zone_id = device_in.assigned_zone_id
+        device.status = DeviceStatus.OFFLINE
+        device.is_active = True
+    else:
+        device = Device(
+            device_code=clean_code,
+            mac_address=clean_mac,
+            battery_percent=device_in.battery_percent,
+            firmware_version=device_in.firmware_version.strip() if device_in.firmware_version else None,
+            type=device_in.type,
+            assigned_zone_id=device_in.assigned_zone_id,
+            status=DeviceStatus.OFFLINE,
+            is_active=True,
+        )
+        db.add(device)
+
     await db.commit()
     await db.refresh(device)
-    logger.info("Registered wearable: id=%s code=%s mac=%s", device.id, device.device_code, device.mac_address)
+    logger.info("Registered device: id=%s code=%s type=%s", device.id, device.device_code, device.type)
     return await get_device_by_id(db, device.id)
 
 
@@ -102,6 +126,10 @@ async def update_device(db: AsyncSession, device_id: uuid.UUID, device_in: Devic
         device.firmware_version = device_in.firmware_version.strip() if device_in.firmware_version else None
     if device_in.student_id is not None:
         device.student_id = device_in.student_id
+    if device_in.type is not None:
+        device.type = device_in.type
+    if device_in.assigned_zone_id is not None:
+        device.assigned_zone_id = device_in.assigned_zone_id
     if device_in.is_active is not None:
         device.is_active = device_in.is_active
 
@@ -111,12 +139,14 @@ async def update_device(db: AsyncSession, device_id: uuid.UUID, device_in: Devic
 
 
 async def deactivate_device(db: AsyncSession, device_id: uuid.UUID) -> Device:
-    """Soft-delete a wearable."""
+    """Soft-delete a device by setting is_active=False."""
     device = await get_device_by_id(db, device_id)
     device.is_active = False
     device.student_id = None
+    device.assigned_zone_id = None
     await db.commit()
     await db.refresh(device)
+    logger.info("Deactivated device: id=%s code='%s'", device.id, device.device_code)
     return device
 
 

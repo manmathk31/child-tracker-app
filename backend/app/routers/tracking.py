@@ -16,10 +16,10 @@ from app.models.user import User
 from app.schemas.location import (
     LocationRecordResponse,
     StudentLiveLocationResponse,
-    TelemetryIngestIn,
+    MasterTelemetryIngest,
     TelemetryIngestResponse,
 )
-from app.services import localization_service, student_service
+from app.services import proximity_service, student_service
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -44,8 +44,8 @@ async def student_history_page(
         return RedirectResponse(url="/login", status_code=302)
 
     student = await student_service.get_student_by_id(db, student_id)
-    history = await localization_service.get_student_location_history(db, student_id, limit=limit)
-    live_info = await localization_service.get_student_live_location(db, student_id)
+    history = await proximity_service.get_student_location_history(db, student_id, limit=limit)
+    live_info = await proximity_service.get_student_live_location(db, student_id)
     settings = get_settings()
 
     context = {
@@ -65,6 +65,24 @@ async def student_history_page(
     )
 
 
+@router.post("/students/{student_id}/history/clear", response_class=HTMLResponse, include_in_schema=False)
+async def clear_student_history(
+    student_id: uuid.UUID,
+    current_user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Clear the location history for a specific student."""
+    if not current_user or current_user.role != UserRole.ADMIN:
+        return RedirectResponse(url="/login", status_code=302)
+
+    from sqlalchemy import delete
+    from app.models.location_record import LocationRecord
+    await db.execute(delete(LocationRecord).where(LocationRecord.student_id == student_id))
+    await db.commit()
+    
+    return RedirectResponse(url=f"/students/{student_id}/history", status_code=303)
+
+
 # ==============================================================================
 # Operational Hardware Telemetry Ingest (ESP32 Protocol)
 # ==============================================================================
@@ -76,14 +94,14 @@ async def student_history_page(
     summary="ESP32 hardware telemetry ingestion endpoint",
 )
 async def ingest_telemetry(
-    payload: TelemetryIngestIn,
+    payload: MasterTelemetryIngest,
     db: AsyncSession = Depends(get_db),
 ) -> TelemetryIngestResponse:
-    """Receive Wi-Fi RSSI scan burst from wearable hardware tag.
+    """Receive Bluetooth/Wi-Fi RSSI scan burst from a Master ESP hardware scanner.
 
-    Computes real-time zone estimate and persists audit records.
+    Processes proximity for all detected wearable tags and records location audit entries.
     """
-    return await localization_service.process_telemetry_scan(db, payload)
+    return await proximity_service.process_telemetry_scan(db, payload)
 
 
 # ==============================================================================
@@ -101,7 +119,7 @@ async def get_student_live_location_api(
     db: AsyncSession = Depends(get_db),
 ) -> StudentLiveLocationResponse:
     """Retrieve current estimated room location, confidence score, and recent breadcrumbs."""
-    return await localization_service.get_student_live_location(db, student_id)
+    return await proximity_service.get_student_live_location(db, student_id)
 
 
 @router.get(
@@ -116,5 +134,5 @@ async def get_student_history_api(
     db: AsyncSession = Depends(get_db),
 ) -> Sequence[LocationRecordResponse]:
     """Retrieve historical location breadcrumb records for a student."""
-    records = await localization_service.get_student_location_history(db, student_id, limit=limit)
+    records = await proximity_service.get_student_location_history(db, student_id, limit=limit)
     return [LocationRecordResponse.model_validate(r) for r in records]

@@ -16,9 +16,8 @@ from pydantic import ValidationError
 from app.core.config import get_settings
 from app.core.exceptions import NotFoundError
 from app.database.session import get_session_factory
-from app.schemas.fingerprint import CalibrationBatchIn
-from app.schemas.location import TelemetryIngestIn, TelemetryIngestResponse
-from app.services import fingerprint_service, localization_service
+from app.schemas.location import MasterTelemetryIngest, TelemetryIngestResponse
+from app.services import proximity_service
 
 logger = logging.getLogger("childtrack.mqtt")
 
@@ -27,7 +26,7 @@ _is_connected: bool = False
 _event_loop: asyncio.AbstractEventLoop | None = None
 
 
-async def _process_telemetry_payload(payload: TelemetryIngestIn) -> None:
+async def _process_telemetry_payload(payload: MasterTelemetryIngest) -> None:
     """Asynchronously process an ingested telemetry packet in the DB context.
 
     Delegates to localization_service to update device online state,
@@ -35,73 +34,37 @@ async def _process_telemetry_payload(payload: TelemetryIngestIn) -> None:
     Optionally publishes an acknowledgement back to the device's cloud topic.
 
     Args:
-        payload: Validated TelemetryIngestIn telemetry model.
+        payload: Validated MasterTelemetryIngest telemetry model.
     """
     session_factory = get_session_factory()
     async with session_factory() as db:
         try:
             ack_response: TelemetryIngestResponse = (
-                await localization_service.process_telemetry_scan(db, payload)
+                await proximity_service.process_telemetry_scan(db, payload)
             )
             logger.info(
-                "MQTT telemetry processed for device %s -> Zone: %s (confidence: %.2f)",
-                payload.device_id,
-                ack_response.assigned_zone or "Unassigned/LowConfidence",
-                ack_response.confidence,
+                "MQTT telemetry processed from Scanner %s -> %d tags",
+                payload.scanner_mac,
+                ack_response.processed_tags,
             )
 
-            # Publish zone acknowledgement back to cloud for ESP32 tag
+            # Publish zone acknowledgement back to cloud for ESP32 scanner
             settings = get_settings()
-            ack_topic = f"{settings.MQTT_TOPIC_ACK_PREFIX}/{payload.device_id}"
+            ack_topic = f"{settings.MQTT_TOPIC_ACK_PREFIX}/{payload.scanner_mac.replace(':', '')}"
             _publish_ack_message(ack_topic, ack_response)
 
         except NotFoundError:
             logger.warning(
-                "MQTT telemetry ignored: Unrecognized or unregistered device code '%s'",
-                payload.device_id,
+                "MQTT telemetry ignored: Unrecognized or inactive scanner MAC '%s'",
+                payload.scanner_mac,
             )
         except Exception as exc:
             logger.error(
-                "Error processing MQTT telemetry for device %s: %s",
-                payload.device_id,
+                "Error processing MQTT telemetry for scanner %s: %s",
+                payload.scanner_mac,
                 exc,
                 exc_info=True,
             )
-
-
-async def _process_calibration_payload(survey_id: uuid.UUID, batch: CalibrationBatchIn) -> None:
-    """Asynchronously process an ingested calibration batch for a survey.
-
-    Args:
-        survey_id: Target Fingerprint survey UUID.
-        batch: Validated CalibrationBatchIn model containing Wi-Fi scan readings.
-    """
-    session_factory = get_session_factory()
-    async with session_factory() as db:
-        try:
-            accepted_count = await fingerprint_service.ingest_samples_batch(db, survey_id, batch)
-            logger.info(
-                "MQTT calibration sample burst recorded for survey %s: %d new samples",
-                survey_id,
-                accepted_count,
-            )
-
-            # Publish acknowledgement back to cloud
-            ack_topic = f"childtrack/ack/calibration/{survey_id}"
-            if _mqtt_client is not None:
-                ack_payload = json.dumps(
-                    {
-                        "status": "ack",
-                        "survey_id": str(survey_id),
-                        "accepted_count": accepted_count,
-                    }
-                )
-                _mqtt_client.publish(ack_topic, ack_payload, qos=0)
-
-        except NotFoundError:
-            logger.warning("MQTT calibration ignored: Survey UUID %s not found", survey_id)
-        except Exception as exc:
-            logger.error("Error processing MQTT calibration for survey %s: %s", survey_id, exc, exc_info=True)
 
 
 def _publish_ack_message(topic: str, ack: TelemetryIngestResponse) -> None:
@@ -119,9 +82,8 @@ def _publish_ack_message(topic: str, ack: TelemetryIngestResponse) -> None:
         payload_json = json.dumps(
             {
                 "status": ack.status,
-                "device_id": ack.device_id,
-                "assigned_zone": ack.assigned_zone,
-                "confidence": ack.confidence,
+                "scanner_mac": ack.scanner_mac,
+                "processed_tags": ack.processed_tags,
                 "server_time": ack.server_time.isoformat() if ack.server_time else None,
             }
         )
@@ -146,11 +108,10 @@ def _on_connect(client: Any, userdata: Any, flags: Any, rc: Any, *args: Any) -> 
         )
         client.subscribe([
             (settings.MQTT_TOPIC_TELEMETRY, 1),
-            ("childtrack/calibration/+", 1),
             (settings.MQTT_TOPIC_TESTING_TETHER, 1),
         ])
         logger.info(
-            "Subscribed to MQTT topics: %s, childtrack/calibration/+, %s",
+            "Subscribed to MQTT topics: %s, %s",
             settings.MQTT_TOPIC_TELEMETRY,
             settings.MQTT_TOPIC_TESTING_TETHER,
         )
@@ -197,25 +158,11 @@ def _on_message(client: Any, userdata: Any, msg: Any) -> None:
             logger.warning("Dropped incoming MQTT message: Event loop is inactive")
             return
 
-        if msg.topic.startswith("childtrack/calibration/"):
-            survey_id_str = msg.topic.split("/")[-1]
-            try:
-                survey_id = uuid.UUID(survey_id_str)
-            except ValueError:
-                logger.warning("Invalid survey UUID in topic: %s", msg.topic)
-                return
-
-            batch_model = CalibrationBatchIn.model_validate_json(raw_payload)
-            asyncio.run_coroutine_threadsafe(
-                _process_calibration_payload(survey_id, batch_model),
-                _event_loop,
-            )
-        else:
-            payload_model = TelemetryIngestIn.model_validate_json(raw_payload)
-            asyncio.run_coroutine_threadsafe(
-                _process_telemetry_payload(payload_model),
-                _event_loop,
-            )
+        payload_model = MasterTelemetryIngest.model_validate_json(raw_payload)
+        asyncio.run_coroutine_threadsafe(
+            _process_telemetry_payload(payload_model),
+            _event_loop,
+        )
 
     except ValidationError as val_err:
         logger.warning(

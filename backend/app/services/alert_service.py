@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError
 from app.models.alert import Alert, AlertSeverity, AlertStatus, AlertType
-from app.models.device import Device, DeviceStatus
+from app.models.device import Device, DeviceStatus, DeviceType
 from app.models.location_record import LocationRecord
 from app.models.student import Student
 from app.services import settings_service
@@ -202,15 +202,20 @@ async def check_offline_devices(
         select(Device)
         .where(
             Device.is_active == True,  # noqa: E712
-            Device.student_id.is_not(None),
         )
-        .options(selectinload(Device.student))
+        .options(selectinload(Device.student), selectinload(Device.assigned_zone))
     )
     res = await db.execute(stmt)
     devices = res.scalars().all()
 
     new_alerts: list[Alert] = []
     for d in devices:
+        # Only check Wearables with students OR Scanners with zones
+        if d.type == DeviceType.WEARABLE and not d.student_id:
+            continue
+        if d.type == DeviceType.SCANNER and not d.assigned_zone_id:
+            continue
+
         last_seen = d.last_seen_at
         if last_seen:
             last_seen_aware = last_seen if last_seen.tzinfo else last_seen.replace(tzinfo=UTC)
@@ -227,7 +232,13 @@ async def check_offline_devices(
                 d.status = DeviceStatus.OFFLINE
                 await db.commit()
 
-            student_name = d.student.full_name if d.student else "Unassigned"
+            if d.type == DeviceType.WEARABLE:
+                target_name = d.student.full_name if d.student else "Unassigned"
+                desc = f"Wearable tag '{d.device_code}' assigned to {target_name}"
+            else:
+                target_name = d.assigned_zone.name if d.assigned_zone else "Unassigned"
+                desc = f"Master Scanner '{d.device_code}' in zone '{target_name}'"
+
             # Calculate duration since last seen
             if last_seen:
                 diff_sec = int((now - last_seen_aware).total_seconds())
@@ -237,14 +248,13 @@ async def check_offline_devices(
                     else AlertSeverity.WARNING
                 )
                 msg = (
-                    f"Wearable tag '{d.device_code}' assigned to {student_name} is offline. "
+                    f"{desc} is offline. "
                     f"No telemetry received for {diff_sec // 60} minutes."
                 )
             else:
                 severity = AlertSeverity.WARNING
                 msg = (
-                    f"Wearable tag '{d.device_code}' assigned to {student_name} has never "
-                    f"reported telemetry."
+                    f"{desc} has never reported telemetry."
                 )
 
             alert, created = await create_alert_idempotent(
@@ -254,6 +264,7 @@ async def check_offline_devices(
                 message=msg,
                 student_id=d.student_id,
                 device_id=d.id,
+                zone_id=d.assigned_zone_id if d.type == DeviceType.SCANNER else None,
             )
             if created:
                 new_alerts.append(alert)

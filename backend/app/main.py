@@ -15,12 +15,10 @@ from app.core.exceptions import register_exception_handlers
 from app.core.logging import request_id_ctx, setup_logging
 from app.database.session import close_db_engine, get_engine
 from app.routers import (
-    access_points,
     alerts,
     auth,
     dashboard,
     devices,
-    fingerprints,
     health,
     pages,
     students,
@@ -116,11 +114,9 @@ def create_application() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(pages.router)
     app.include_router(zones.router)
-    app.include_router(access_points.router)
     app.include_router(devices.router)
     app.include_router(students.router)
     app.include_router(settings_router.router)
-    app.include_router(fingerprints.router)
     app.include_router(tracking.router)
     app.include_router(alerts.router)
     app.include_router(dashboard.router)

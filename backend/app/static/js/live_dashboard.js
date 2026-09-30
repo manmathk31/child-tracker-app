@@ -281,6 +281,9 @@
                   <span style="color: var(--color-warning);">
                     ⚠️ Unknown / Roaming
                   </span>
+                  <span style="font-size: 11px; font-weight: normal; color: var(--color-text-muted);">
+                    ${Math.round(s.confidence * 100)}% conf
+                  </span>
                 `}
               </div>
               ${isRestricted ? `

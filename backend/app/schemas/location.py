@@ -9,30 +9,27 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 BSSID_REGEX = r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
 
 
-class TelemetryScanItem(BaseModel):
-    """Single Wi-Fi Access Point observation from ESP32 wearable."""
+class TagObservation(BaseModel):
+    """Single Wearable Tag observation from Master ESP."""
 
-    bssid: str = Field(..., description="Access point BSSID / MAC address")
+    mac: str = Field(..., description="Wearable hardware MAC address")
     rssi: int = Field(..., ge=-100, le=0, description="Signal strength in dBm (-100 to 0)")
-    channel: int | None = Field(None, ge=1, le=165, description="Wi-Fi channel (1-165)")
+    battery: int | None = Field(None, description="Battery percentage if available")
+    sos: bool = Field(False, description="True if the tag is broadcasting an SOS emergency")
 
-    @field_validator("bssid")
+    @field_validator("mac")
     @classmethod
-    def normalize_bssid(cls, v: str) -> str:
+    def normalize_mac(cls, v: str) -> str:
         return v.replace("-", ":").upper()
 
 
-class TelemetryIngestIn(BaseModel):
-    """Payload sent by wearable device per ESP32_PROTOCOL.md."""
+class MasterTelemetryIngest(BaseModel):
+    """Payload sent by Master ESP scanner."""
 
-    device_id: str = Field(..., description="Hardware identifier etched on casing or device_code")
-    mac_address: str = Field(..., description="Wearable hardware MAC address")
-    battery_percent: int = Field(..., ge=0, le=100, description="0 to 100 percentage")
-    firmware_version: str | None = Field(None, description="Installed firmware version")
-    scan: list[TelemetryScanItem] = Field(..., description="Wi-Fi APs detected in scan")
-    events: dict[str, Any] | None = Field(default_factory=dict, description="Hardware event flags")
+    scanner_mac: str = Field(..., description="Master ESP hardware MAC address")
+    tags: list[TagObservation] = Field(..., description="Wearable tags detected in scan")
 
-    @field_validator("mac_address")
+    @field_validator("scanner_mac")
     @classmethod
     def normalize_mac(cls, v: str) -> str:
         return v.replace("-", ":").upper()
@@ -42,17 +39,8 @@ class TelemetryIngestResponse(BaseModel):
     """Ingestion acknowledgement response per ESP32_PROTOCOL.md."""
 
     status: str = Field("ack", description="Ingestion status")
-    device_id: str = Field(..., description="Device identifier")
-    assigned_zone: str | None = Field(
-        None,
-        description="Estimated zone name or null if unassigned/low confidence",
-    )
-    confidence: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Localization confidence score (0.0 - 1.0)",
-    )
+    scanner_mac: str = Field(..., description="Scanner identifier")
+    processed_tags: int = Field(..., description="Number of tags successfully processed")
     server_time: datetime = Field(..., description="Server timestamp")
 
 

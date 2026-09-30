@@ -21,6 +21,13 @@ class DeviceStatus(str, enum.Enum):
     OFFLINE = "offline"
 
 
+class DeviceType(str, enum.Enum):
+    """Type of the ESP32 device."""
+
+    WEARABLE = "wearable"
+    SCANNER = "scanner"
+
+
 class Device(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     """ESP32 wearable hardware tag assigned to a child."""
 
@@ -57,10 +64,20 @@ class Device(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
         default=DeviceStatus.OFFLINE,
         nullable=False,
     )
+    type: Mapped[DeviceType] = mapped_column(
+        Enum(DeviceType, name="device_type", native_enum=False),
+        default=DeviceType.WEARABLE,
+        nullable=False,
+    )
     student_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("students.id", ondelete="SET NULL"),
         unique=True,
+        nullable=True,
+    )
+    assigned_zone_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("zones.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -69,6 +86,10 @@ class Device(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
         "Student",
         back_populates="device",
     )
+    assigned_zone: Mapped[Optional["Zone"]] = relationship(
+        "Zone",
+        back_populates="scanner_devices",
+    )
 
     def __repr__(self) -> str:
-        return f"<Device {self.device_code} ({self.mac_address}) - {self.status.value}>"
+        return f"<Device {self.device_code} ({self.mac_address}) - {self.type.value} - {self.status.value}>"

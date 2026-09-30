@@ -14,8 +14,8 @@
         <a href="/zones/{{ zone.id }}/edit" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 36px;">
           Edit Zone
         </a>
-        <a href="/access-points/new?zone_id={{ zone.id }}" class="btn btn-primary" style="font-size: var(--font-size-xs); min-height: 36px;">
-          + Add Access Point
+        <a href="/devices/new?type=SCANNER&zone_id={{ zone.id }}" class="btn btn-primary" style="font-size: var(--font-size-xs); min-height: 36px;">
+          + Add Scanner Device
         </a>
       </div>
     {% endif %}
@@ -43,9 +43,9 @@
         </div>
       </div>
       <div>
-        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Access Points</div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-transform: uppercase;">Scanner Devices</div>
         <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text-primary);">
-          {{ zone.access_points|length }} AP{{ "s" if zone.access_points|length != 1 else "" }}
+          {{ zone.scanner_devices|length }} Scanner{{ "s" if zone.scanner_devices|length != 1 else "" }}
         </div>
       </div>
     </div>
@@ -59,53 +59,39 @@
   {# Associated Access Points #}
   <div class="card" style="margin-bottom: var(--space-5);">
     <div class="card-header">
-      <h2 class="card-title">Deployed Access Points</h2>
+      <h2 class="card-title">Deployed Master Scanners</h2>
       {% if current_user and current_user.role.value == 'admin' %}
-        <a href="/access-points/new?zone_id={{ zone.id }}" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
-          Attach AP
+        <a href="/devices/new?type=SCANNER&zone_id={{ zone.id }}" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">
+          Attach Scanner
         </a>
       {% endif %}
     </div>
 
-    {% if zone.access_points and zone.access_points|length > 0 %}
+    {% if zone.scanner_devices and zone.scanner_devices|length > 0 %}
       <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-        {% for ap in zone.access_points %}
+        {% for scanner in zone.scanner_devices %}
           <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-3); background: var(--color-surface-hover); border-radius: var(--radius-md);">
             <div>
               <div style="font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); color: var(--color-text-primary);">
-                {{ ap.name }}
+                {{ scanner.device_code }}
               </div>
               <div style="font-family: monospace; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
-                {{ ap.bssid }} {% if ap.channel %}(Ch. {{ ap.channel }}){% endif %}
+                {{ scanner.mac_address }}
               </div>
             </div>
-            <span class="status-pill {% if ap.is_active %}online{% else %}offline{% endif %}" style="font-size: 10px; min-height: 24px;">
-              {{ "Active" if ap.is_active else "Inactive" }}
+            <span class="status-pill {% if scanner.status.value == 'online' %}online{% else %}offline{% endif %}" style="font-size: 10px; min-height: 24px;">
+              {{ "Online" if scanner.status.value == 'online' else "Offline" }}
             </span>
           </div>
         {% endfor %}
       </div>
-    {% else %}
-      {% with empty_title="No Access Points registered in this zone",
-              empty_message="To enable RSSI fingerprinting and positioning in this zone, at least two Wi-Fi access points should be registered.",
-              empty_action_url="/access-points/new?zone_id=" + zone.id|string,
-              empty_action_label="Register First AP" %}
+      {% with empty_title="No Scanner Devices registered in this zone",
+              empty_message="To enable student tracking in this zone, at least one Master Scanner ESP should be registered.",
+              empty_action_url="/devices/new?type=SCANNER&zone_id=" + zone.id|string,
+              empty_action_label="Register First Scanner" %}
         {% include "components/empty_state.html" %}
       {% endwith %}
     {% endif %}
-  </div>
-
-  {# Calibration Status Card (Phase 3 Shell) #}
-  <div class="card">
-    <div class="card-header">
-      <h2 class="card-title">Fingerprint Calibration</h2>
-    </div>
-    {% with empty_title="No active fingerprint survey",
-            empty_message="Fingerprint survey data will be collected during Phase 3 Calibration to enable Euclidean RSSI matching.",
-            empty_action_url=None,
-            empty_action_label=None %}
-      {% include "components/empty_state.html" %}
-    {% endwith %}
   </div>
 </div>
 {% endblock %}

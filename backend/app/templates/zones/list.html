@@ -60,7 +60,7 @@
 
           <div style="padding-top: var(--space-3); border-top: 1px solid var(--color-border-subtle); display: flex; align-items: center; justify-content: space-between;">
             <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
-              {{ zone.access_points|length }} Access Point{{ "s" if zone.access_points|length != 1 else "" }}
+              {{ zone.scanner_devices|length }} Scanner{{ "s" if zone.scanner_devices|length != 1 else "" }}
             </span>
             <div style="display: flex; gap: var(--space-2);">
               <a href="/zones/{{ zone.id }}" class="btn btn-secondary" style="font-size: var(--font-size-xs); min-height: 32px; padding: 0 10px;">

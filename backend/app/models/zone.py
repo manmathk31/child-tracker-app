@@ -8,8 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
-    from app.models.access_point import AccessPoint
-    from app.models.fingerprint import Fingerprint
+    from app.models.device import Device
     from app.models.student import Student
 
 
@@ -38,20 +37,14 @@ class Zone(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     )
 
     # Relationships
-    access_points: Mapped[List["AccessPoint"]] = relationship(
-        "AccessPoint",
-        back_populates="zone",
-        cascade="all, delete-orphan",
+    scanner_devices: Mapped[List["Device"]] = relationship(
+        "Device",
+        back_populates="assigned_zone",
     )
     students: Mapped[List["Student"]] = relationship(
         "Student",
         secondary="allowed_zones",
         back_populates="allowed_zones",
-    )
-    fingerprints: Mapped[List["Fingerprint"]] = relationship(
-        "Fingerprint",
-        back_populates="zone",
-        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

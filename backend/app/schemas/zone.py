@@ -39,7 +39,6 @@ class ZoneResponse(ZoneBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    access_points_count: int = 0
-    has_active_fingerprint: bool = False
+    scanner_devices_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)

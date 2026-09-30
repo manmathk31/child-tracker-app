@@ -25,7 +25,7 @@ async def list_zones(db: AsyncSession, include_inactive: bool = False) -> Sequen
     Returns:
         List of Zone entities.
     """
-    stmt = select(Zone).options(selectinload(Zone.access_points))
+    stmt = select(Zone).options(selectinload(Zone.scanner_devices))
     if not include_inactive:
         stmt = stmt.where(Zone.is_active == True)  # noqa: E712
     stmt = stmt.order_by(Zone.name)
@@ -46,7 +46,7 @@ async def get_zone_by_id(db: AsyncSession, zone_id: uuid.UUID) -> Zone:
     Raises:
         NotFoundError: If zone does not exist.
     """
-    stmt = select(Zone).options(selectinload(Zone.access_points)).where(Zone.id == zone_id)
+    stmt = select(Zone).options(selectinload(Zone.scanner_devices)).where(Zone.id == zone_id)
     result = await db.execute(stmt)
     zone = result.scalar_one_or_none()
     if not zone:

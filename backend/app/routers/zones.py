@@ -207,6 +207,24 @@ async def edit_zone_submit(
         )
 
 
+@router.post("/zones/{zone_id}/delete", include_in_schema=False)
+async def delete_zone(
+    zone_id: uuid.UUID,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Soft delete a zone."""
+    if not current_user or current_user.role != UserRole.ADMIN:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        await zone_service.deactivate_zone(db, zone_id)
+    except NotFoundError:
+        pass
+    
+    return RedirectResponse(url="/zones", status_code=status.HTTP_303_SEE_OTHER)
+
+
 # ==============================================================================
 # REST API Endpoints (/api/v1/zones/*)
 # ==============================================================================
@@ -229,8 +247,7 @@ async def api_list_zones(
             is_active=z.is_active,
             created_at=z.created_at,
             updated_at=z.updated_at,
-            access_points_count=len(z.access_points),
-            has_active_fingerprint=False,
+            scanner_devices_count=len(z.scanner_devices),
         )
         for z in zones
     ]
@@ -264,8 +281,7 @@ async def api_get_zone(
         is_active=zone.is_active,
         created_at=zone.created_at,
         updated_at=zone.updated_at,
-        access_points_count=len(zone.access_points),
-        has_active_fingerprint=False,
+        scanner_devices_count=len(zone.scanner_devices),
     )
 
 

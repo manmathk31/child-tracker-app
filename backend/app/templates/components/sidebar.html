@@ -1,9 +1,9 @@
 {# Desktop Sidebar Navigation Component (Role-Aware) #}
 <aside class="app-sidebar" aria-label="Main Navigation">
   <div class="sidebar-header">
-    <div class="sidebar-logo">CT</div>
+    <img src="/static/assets/anveshak_logo.png" alt="Anveshak Logo" style="width: 54px; height: 54px; object-fit: cover; border-radius: 8px; margin-left: -6px; margin-right: 4px;" />
     <div>
-      <div class="sidebar-title">ChildTrack</div>
+      <div class="sidebar-title">Anveshak</div>
       <div class="sidebar-subtitle">Safety &amp; Monitoring</div>
     </div>
   </div>
@@ -46,25 +46,11 @@
         <span>Zones</span>
       </a>
 
-      <a href="/access-points" class="sidebar-link {% if active_page == 'access_points' %}active{% endif %}" id="nav-access-points">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path>
-        </svg>
-        <span>Access Points</span>
-      </a>
-
       <a href="/devices" class="sidebar-link {% if active_page == 'devices' %}active{% endif %}" id="nav-devices">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
         </svg>
-        <span>Wearables</span>
-      </a>
-
-      <a href="/fingerprints" class="sidebar-link {% if active_page == 'fingerprints' %}active{% endif %}" id="nav-fingerprints">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-        </svg>
-        <span>Fingerprints</span>
+        <span>Devices</span>
       </a>
 
       <a href="/settings" class="sidebar-link {% if active_page == 'settings' %}active{% endif %}" id="nav-settings">

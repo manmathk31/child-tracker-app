@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
     DEBUG: bool = True
-    APP_NAME: str = "ChildTrack"
+    APP_NAME: str = "Anveshak"
     APP_VERSION: str = "0.1.0"
 
     # Server Binding
