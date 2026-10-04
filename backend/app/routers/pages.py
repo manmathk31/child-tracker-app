@@ -75,6 +75,31 @@ async def dashboard_page(
     )
 
 
+@router.get("/map", response_class=HTMLResponse)
+async def map_page(
+    request: Request,
+    current_user: User | None = Depends(get_optional_current_user),
+) -> Any:
+    """Render the 2D Floor Map view."""
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=302)
+
+    settings = get_settings()
+
+    context = {
+        "request": request,
+        "page_title": "2D Live Map",
+        "active_page": "map",
+        "app_version": settings.APP_VERSION,
+        "current_user": current_user,
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard/map.html",
+        context=context,
+    )
+
+
 @router.get("/alerts", response_class=HTMLResponse)
 async def alerts_page(
     request: Request,
