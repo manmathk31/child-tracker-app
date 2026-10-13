@@ -17,6 +17,7 @@ from app.models.user import User, UserRole
 from app.schemas.student import StudentCreate, StudentResponse, StudentUpdate
 from app.services import (
     device_service,
+    proximity_service,
     student_service,
     zone_service,
 )
@@ -178,8 +179,8 @@ async def student_detail_page(
     except NotFoundError:
         return RedirectResponse(url="/students", status_code=302)
 
-    recent_history = []  # await localization_service.get_student_location_history(db, student_id, limit=5)
-    live_info = None  # await localization_service.get_student_live_location(db, student_id)
+    recent_history = await proximity_service.get_student_location_history(db, student_id, limit=5)
+    live_info = await proximity_service.get_student_live_location(db, student_id)
 
     settings = get_settings()
     context = {

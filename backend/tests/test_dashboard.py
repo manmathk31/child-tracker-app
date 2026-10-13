@@ -363,3 +363,107 @@ async def test_dashboard_web_view_unauthenticated_redirect(client: AsyncClient) 
     res = await client.get("/dashboard", follow_redirects=False)
     assert res.status_code == 302
     assert "/login" in res.headers.get("location", "")
+
+
+@pytest.mark.asyncio
+async def test_map_web_view_authenticated(client: AsyncClient, admin_user: User) -> None:
+    """Verify GET /map renders Live Campus Map template with 2D spatial canvas."""
+    token = create_access_token(subject=str(admin_user.id), role=admin_user.role.value)
+    client.cookies.set("access_token", token)
+
+    res = await client.get("/map")
+    assert res.status_code == 200
+    assert "text/html" in res.headers.get("content-type", "")
+    assert "Live Campus Map" in res.text
+    assert "floor-plan-container" in res.text
+    assert "/static/js/2d_map.js" in res.text
+    assert "(Beta)" not in res.text
+
+
+@pytest.mark.asyncio
+async def test_map_web_view_unauthenticated_redirect(client: AsyncClient) -> None:
+    """Verify unauthenticated requests to /map redirect to /login."""
+    client.cookies.clear()
+    res = await client.get("/map", follow_redirects=False)
+    assert res.status_code == 302
+    assert "/login" in res.headers.get("location", "")
+
+
+@pytest.mark.asyncio
+async def test_proximity_multi_scanner_arbitration(db_session: AsyncSession) -> None:
+    """Verify multi-scanner arbitration rejects adjacent room bleed-through scans."""
+    from app.models.device import Device, DeviceStatus, DeviceType
+    from app.schemas.location import MasterTelemetryIngest, TagObservation
+    from app.services import proximity_service
+
+    # 1. Create 2 zones
+    z1 = await zone_service.create_zone(
+        db_session, ZoneCreate(name=f"Zone Alpha {uuid.uuid4().hex[:4]}")
+    )
+    z2 = await zone_service.create_zone(
+        db_session, ZoneCreate(name=f"Zone Beta {uuid.uuid4().hex[:4]}")
+    )
+
+    mac_sc1 = _random_mac()
+    mac_sc2 = _random_mac()
+    mac_wb1 = _random_mac()
+
+    # 2. Create 2 scanners assigned to z1 and z2
+    sc1 = Device(
+        device_code=f"SC-{uuid.uuid4().hex[:4].upper()}",
+        mac_address=mac_sc1,
+        type=DeviceType.SCANNER,
+        status=DeviceStatus.ONLINE,
+        assigned_zone_id=z1.id,
+    )
+    sc2 = Device(
+        device_code=f"SC-{uuid.uuid4().hex[:4].upper()}",
+        mac_address=mac_sc2,
+        type=DeviceType.SCANNER,
+        status=DeviceStatus.ONLINE,
+        assigned_zone_id=z2.id,
+    )
+    # 3. Create Wearable & Student
+    stu = await student_service.create_student(
+        db_session,
+        StudentCreate(
+            full_name="Test Arbitrator",
+            student_code=f"STU-{uuid.uuid4().hex[:4]}",
+            class_name="Grade 1A",
+            age=6,
+        ),
+    )
+    wb1 = Device(
+        device_code=f"WB-{uuid.uuid4().hex[:4].upper()}",
+        mac_address=mac_wb1,
+        type=DeviceType.WEARABLE,
+        status=DeviceStatus.ONLINE,
+        student_id=stu.id,
+    )
+    db_session.add_all([sc1, sc2, wb1])
+    await db_session.commit()
+
+    # 4. Scanner 1 observes tag with strong signal (-30 dBm)
+    p1 = MasterTelemetryIngest(
+        scanner_mac=mac_sc1,
+        tags=[TagObservation(mac=mac_wb1, rssi=-30, battery=95, sos=False)],
+    )
+    ack1 = await proximity_service.process_telemetry_scan(db_session, p1)
+    assert ack1.processed_tags == 1
+
+    live1 = await proximity_service.get_student_live_location(db_session, stu.id)
+    assert live1.current_zone_name == z1.name
+
+    # 5. Scanner 2 in adjacent room sees bleed-through (-75 dBm, weak)
+    p2 = MasterTelemetryIngest(
+        scanner_mac=mac_sc2,
+        tags=[TagObservation(mac=mac_wb1, rssi=-75, battery=95, sos=False)],
+    )
+    ack2 = await proximity_service.process_telemetry_scan(db_session, p2)
+    # Bleed-through scan is rejected from overriding the active zone
+    assert ack2.processed_tags == 0
+
+    live2 = await proximity_service.get_student_live_location(db_session, stu.id)
+    # Student remains stably in Zone 1 without flickering!
+    assert live2.current_zone_name == z1.name
+

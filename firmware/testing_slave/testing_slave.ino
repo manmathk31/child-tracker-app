@@ -1,48 +1,66 @@
-/*
- * ChildTrack - Testing Portal: Slave ESP (Child Wearable Beacon Tag)
- * 
- * Instructions:
- * 1. Flash this code onto ESP #1 (Slave ESP).
- * 2. Power it from any USB port or power bank.
- * 3. It broadcasts a private beacon "CT-SLAVE-TAG" continuously.
- * 4. Zero router / Wi-Fi setup needed on this board! Extremely power efficient.
- */
-
+// ==========================================
+// CHILDTRACK SLAVE (WEARABLE TAG) FIRMWARE
+// ==========================================
 #include <WiFi.h>
 
-#define BEACON_SSID  "CT-SLAVE-TAG"
-#define BEACON_PASS  "ChildTrack123"
+const char* BASE_SSID = "CT-TAG-"; 
+const char* SOS_SSID = "SOS-TAG-"; 
 
-// Optional onboard LED pin (GPIO 2 is the blue LED on most ESP32 boards)
-#define LED_PIN 2
+// Pin for the SOS trigger. Touch this pin to Ground (GND) to trigger an SOS.
+const int SOS_PIN = 15; 
+
+bool sos_active = false;
+unsigned long sos_start_time = 0;
+const unsigned long SOS_DURATION_MS = 30000; // Broadcast SOS for 30 seconds
+
+String macAddress;
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_PIN, OUTPUT);
-
-  Serial.println("\n========================================================");
-  Serial.println("  ChildTrack Tether Lab - Slave ESP (Proximity Beacon)  ");
-  Serial.println("========================================================");
-
-  // Broadcast private beacon hotspot (Channel 1, broadcast SSID, max 1 connection)
+  pinMode(SOS_PIN, INPUT_PULLUP);
+  
+  // 1. Temporarily boot into Station mode to reliably grab the MAC
+  WiFi.mode(WIFI_STA);
+  delay(100);
+  macAddress = WiFi.macAddress();
+  
+  // 2. Switch back to Access Point mode for our beacon
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(BEACON_SSID, BEACON_PASS, 1, 0, 1);
-
-  Serial.printf("[Beacon] Beacon initialized: %s\n", BEACON_SSID);
-  Serial.println("[Beacon] >> Broadcasting proximity signals continuously...");
+  
+  Serial.println("ChildTrack Wearable Tag Booted.");
+  Serial.println("MAC Address: " + macAddress);
+  
+  updateBeacon(BASE_SSID);
 }
 
-int cycleCount = 0;
-
 void loop() {
-  // Gentle heartbeat pulse on onboard LED every 1 second
-  digitalWrite(LED_PIN, HIGH);
-  delay(100);
-  digitalWrite(LED_PIN, LOW);
-  delay(900);
-
-  cycleCount++;
-  if (cycleCount % 5 == 0) {
-    Serial.printf("[Slave Tag] Broadcasting '%s' (Heartbeat #%d)\n", BEACON_SSID, cycleCount);
+  // If GPIO 15 is connected to GND, trigger SOS!
+  if (digitalRead(SOS_PIN) == LOW) {
+    if (!sos_active) {
+      Serial.println("SOS TRIGGERED! Changing broadcast to SOS...");
+      sos_active = true;
+      sos_start_time = millis();
+      updateBeacon(SOS_SSID);
+    }
+    delay(200); 
   }
+  
+  // Reset SOS after 30 seconds
+  if (sos_active && (millis() - sos_start_time > SOS_DURATION_MS)) {
+    Serial.println("SOS Duration expired. Returning to normal beacon.");
+    sos_active = false;
+    updateBeacon(BASE_SSID);
+  }
+  delay(10);
+}
+
+void updateBeacon(const char* prefix) {
+  String ssid = String(prefix) + macAddress.substring(macAddress.length() - 8);
+  ssid.replace(":", "");
+  
+  WiFi.softAPdisconnect(true);
+  delay(100);
+  // MaxConnections = 0 ensures it's just a beacon
+  WiFi.softAP(ssid.c_str(), "childtrack", 1, 0, 0); 
+  Serial.println("Broadcasting as: " + ssid);
 }
