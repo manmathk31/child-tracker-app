@@ -88,7 +88,7 @@ async def map_page(
 
     context = {
         "request": request,
-        "page_title": "2D Live Map",
+        "page_title": "Live Campus Map",
         "active_page": "map",
         "app_version": settings.APP_VERSION,
         "current_user": current_user,

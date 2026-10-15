@@ -1,172 +1,142 @@
-/*
- * ChildTrack - Testing Portal: Master ESP (Guardian Scanner + Cloud Bridge)
- * 
- * Instructions:
- * 1. Open Arduino IDE -> Sketch -> Include Library -> Manage Libraries...
- *    Make sure "PubSubClient" (by Nick O'Leary) is installed.
- * 2. Flash this code onto ESP #2 (Master ESP) connected via USB to PC.
- * 3. Open Serial Monitor at 115200 baud to observe live Master-Slave proximity scans!
- */
-
+// ==========================================
+// CHILDTRACK MASTER (SCANNER) FIRMWARE
+// ==========================================
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include <math.h>
+#include <ArduinoJson.h>
 
-// ==============================================================================
-// 1. Wi-Fi Configuration
-// ==============================================================================
-const char* WIFI_SSID        = "MITAOE";
-const char* WIFI_PASSWORD    = "MitAOE#2";
+// --- Hardware Pins ---
+#define LED_POWER_PIN 25 // Red LED
+#define LED_DATA_PIN 26  // Green LED
 
-// ==============================================================================
-// 2. HiveMQ Cloud MQTT Configuration (Pre-configured)
-// ==============================================================================
-const char* MQTT_BROKER      = "bba750cd4da045959dd983b09d38b17f.s1.eu.hivemq.cloud";
-const int   MQTT_PORT        = 8883;
-const char* MQTT_USER        = "inhousechildtracker";
-const char* MQTT_PASSWORD    = "childtracker@123";
-const char* TOPIC_TETHER     = "childtrack/testing/tether";
+// --- Wi-Fi Configuration ---
+const char* WIFI_SSID = "MITAOE";
+const char* WIFI_PASSWORD = "MitAOE#2";
 
-// ==============================================================================
-// 3. Proximity Tether Configuration
-// ==============================================================================
-const char* TARGET_BEACON    = "CT-SLAVE-TAG";
-const char* MASTER_ID        = "MASTER-01";
-const char* SLAVE_ID         = "SLAVE-01";
+// --- HiveMQ Cloud Configuration ---
+const char* MQTT_BROKER = "bba750cd4da045959dd983b09d38b17f.s1.eu.hivemq.cloud"; 
+const int MQTT_PORT = 8883;
+const char* MQTT_USERNAME = "inhousechildtracker";
+const char* MQTT_PASSWORD = "childtracker@123";
 
-// Proximity Warning and Alert Thresholds (dBm)
-const int WARNING_RSSI       = -72; // Drifting far (~5-7m)
-const int ALERT_RSSI         = -83; // Out of safe range (~12m+)
+// Ensure this topic matches the MQTT_TOPIC_TELEMETRY in your backend .env or mqtt_service
+const char* MQTT_TOPIC = "childtrack/telemetry/scans"; 
+const int SCAN_INTERVAL_MS = 5000; 
 
 WiFiClientSecure espClient;
-PubSubClient     mqttClient(espClient);
-
-float calculateDistance(int rssi) {
-  if (rssi == 0) return -1.0;
-  float ratio = (-45.0 - (float)rssi) / (10.0 * 2.4);
-  return round(pow(10.0, ratio) * 10.0) / 10.0;
-}
-
-void ensureMqttConnected() {
-  while (!mqttClient.connected()) {
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("[Wi-Fi] Reconnecting...");
-      WiFi.reconnect();
-      while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-      }
-      Serial.println("\n[Wi-Fi] Reconnected!");
-    }
-    Serial.print("[Cloud MQTT] Connecting Master to HiveMQ Cloud...");
-    String clientId = "ChildTrackMaster-" + String(random(0xffff), HEX);
-    if (mqttClient.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
-      Serial.println(" CONNECTED!");
-    } else {
-      Serial.printf(" FAILED (rc=%d). Retrying in 3s...\n", mqttClient.state());
-      delay(3000);
-    }
-  }
-}
+PubSubClient mqtt(espClient);
+String scannerMac;
+unsigned long lastScanTime = 0;
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
 
-  Serial.println("\n========================================================");
-  Serial.println("  ChildTrack Tether Lab - Master ESP (Scanner + Cloud)  ");
-  Serial.println("========================================================");
+  // Initialize LEDs
+  pinMode(LED_POWER_PIN, OUTPUT);
+  pinMode(LED_DATA_PIN, OUTPUT);
+  
+  // Turn on Power LED immediately (Red)
+  digitalWrite(LED_POWER_PIN, HIGH);
+  digitalWrite(LED_DATA_PIN, LOW);
 
-  // 1. Connect to Wi-Fi
   WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  delay(100);
+  
+  // HiveMQ Cloud requires TLS/SSL connection on port 8883. 
+  // For testing purposes, we skip certificate validation.
+  espClient.setInsecure(); 
+  
+  connectWiFi();
+  
+  // Grab MAC after Wi-Fi connects to avoid 00:00:00 bug
+  scannerMac = WiFi.macAddress();
+  Serial.println("ChildTrack Master Scanner Booted.");
+  Serial.println("Scanner MAC: " + scannerMac);
+  
+  mqtt.setServer(MQTT_BROKER, MQTT_PORT);
+}
 
-  Serial.printf("[Wi-Fi] Connecting to '%s'", WIFI_SSID);
+void loop() {
+  if (WiFi.status() != WL_CONNECTED) connectWiFi();
+  if (!mqtt.connected()) connectMQTT();
+  
+  mqtt.loop();
+  
+  if (millis() - lastScanTime > SCAN_INTERVAL_MS) {
+    lastScanTime = millis();
+    performScanAndPublish();
+  }
+}
+
+void connectWiFi() {
+  Serial.print("Connecting to Wi-Fi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\n[Wi-Fi] Connected successfully!");
-
-  // 2. Configure Secure MQTT over TLS
-  espClient.setInsecure();
-  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
-  ensureMqttConnected();
-
-  Serial.println("[Master] Proximity Guardian Engine ready and running!");
+  Serial.println("\nWi-Fi Connected!");
 }
 
-void loop() {
-  if (!mqttClient.connected()) {
-    ensureMqttConnected();
-  }
-  mqttClient.loop();
-
-  // 1. Scan Wi-Fi radio frequencies to locate Slave Beacon
-  Serial.println("\n[Scanner] Scanning for Slave beacon ('CT-SLAVE-TAG')...");
-  int n = WiFi.scanNetworks(false, false); // synchronous scan
-  
-  bool slaveDetected = false;
-  int lastSeenRSSI = 0;
-
-  for (int i = 0; i < n; i++) {
-    if (WiFi.SSID(i) == TARGET_BEACON) {
-      slaveDetected = true;
-      lastSeenRSSI = WiFi.RSSI(i);
-      Serial.printf("  [BEACON DETECTED] Found Slave ESP! Signal RSSI: %d dBm\n", lastSeenRSSI);
-      break;
-    }
-  }
-  WiFi.scanDelete(); // Free scan memory
-
-  // 2. Determine Proximity Status
-  String statusStr;
-  float dist = -1.0;
-
-  if (slaveDetected) {
-    dist = calculateDistance(lastSeenRSSI);
-    if (lastSeenRSSI >= WARNING_RSSI) {
-      statusStr = "SAFE";
-      Serial.printf("[Status] 🟢 SAFE RANGE (~%.1fm | %d dBm)\n", dist, lastSeenRSSI);
-    } else if (lastSeenRSSI >= ALERT_RSSI) {
-      statusStr = "WARNING";
-      Serial.printf("[Status] 🟡 WARNING: SLAVE DRIFTING FAR (~%.1fm | %d dBm)\n", dist, lastSeenRSSI);
+void connectMQTT() {
+  while (!mqtt.connected()) {
+    Serial.print("Connecting to HiveMQ Cloud...");
+    
+    // Create a unique client ID based on MAC
+    String clientId = "CT-Scanner-" + scannerMac;
+    
+    // Connect using Username and Password
+    if (mqtt.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+      Serial.println("Connected!");
     } else {
-      statusStr = "LOST";
-      Serial.printf("[Status] 🔴 CRITICAL: OUT OF RANGE (~%.1fm | %d dBm)\n", dist, lastSeenRSSI);
+      Serial.print("Failed, rc=");
+      Serial.print(mqtt.state());
+      Serial.println(" retrying in 5s");
+      delay(5000);
+    }
+  }
+}
+
+void performScanAndPublish() {
+  Serial.println("Scanning for Tags...");
+  int networkCount = WiFi.scanNetworks(false, false, false, 100);
+  
+  if (networkCount == 0) return;
+  
+  StaticJsonDocument<1024> doc;
+  doc["scanner_mac"] = scannerMac;
+  doc["timestamp"] = "TODO";
+  JsonArray tags = doc.createNestedArray("tags");
+  int tagsFound = 0;
+  
+  for (int i = 0; i < networkCount; ++i) {
+    String ssid = WiFi.SSID(i);
+    String bssid = WiFi.BSSIDstr(i);
+    
+    if (ssid.startsWith("CT-TAG-") || ssid.startsWith("SOS-TAG-")) {
+      JsonObject tag = tags.createNestedObject();
+      tag["mac"] = bssid;
+      tag["rssi"] = WiFi.RSSI(i);
+      tag["sos"] = ssid.startsWith("SOS-TAG-");
+      tag["battery"] = 100; 
+      
+      if (tag["sos"]) Serial.println("! SOS DETECTED FROM " + bssid + " !");
+      tagsFound++;
+    }
+  }
+  
+  if (tagsFound > 0) {
+    char payload[1024];
+    serializeJson(doc, payload);
+    Serial.println("Publishing: " + String(payload));
+    if (mqtt.publish(MQTT_TOPIC, payload)) {
+       // Blink Green LED when we successfully receive tags AND publish them
+       digitalWrite(LED_DATA_PIN, HIGH);
+       delay(200);
+       digitalWrite(LED_DATA_PIN, LOW);
     }
   } else {
-    statusStr = "LOST";
-    Serial.println("[Status] 🚨 CRITICAL: SLAVE BEACON NOT DETECTED (LOST)!");
+    Serial.println("No Tags in range.");
   }
-
-  // 3. Construct JSON Payload
-  String payload = "{";
-  payload += "\"master_id\":\"" + String(MASTER_ID) + "\",";
-  payload += "\"slave_id\":\"" + String(SLAVE_ID) + "\",";
-  if (slaveDetected) {
-    payload += "\"rssi\":" + String(lastSeenRSSI) + ",";
-    payload += "\"distance_approx_m\":" + String(dist, 1) + ",";
-  } else {
-    payload += "\"rssi\":null,";
-    payload += "\"distance_approx_m\":null,";
-  }
-  payload += "\"status\":\"" + statusStr + "\",";
-  payload += "\"battery_master\":98,";
-  payload += "\"battery_slave\":92";
-  payload += "}";
-
-  // 4. Publish live tether state to HiveMQ Cloud
-  bool pub = mqttClient.publish(TOPIC_TETHER, payload.c_str());
-  if (pub) {
-    Serial.printf("[Cloud MQTT] Published tether state to '%s'\n", TOPIC_TETHER);
-  } else {
-    Serial.println("[Cloud MQTT] Failed to publish telemetry.");
-  }
-
-  // Small delay before next scan cycle
-  delay(1500);
+  WiFi.scanDelete(); 
 }

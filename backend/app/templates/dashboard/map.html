@@ -1,19 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}2D Live Campus Map{% endblock %}
-{% block page_title %}2D Live Campus Map{% endblock %}
+{% block title %}Live Campus Map{% endblock %}
+{% block page_title %}Live Campus Map{% endblock %}
 
 {% block extra_head %}
 <style>
+  /* Force full width and full height utilization for the Live Map page */
+  .app-main {
+    max-width: 100% !important;
+    padding: var(--space-2) var(--space-4) var(--space-3) var(--space-4) !important;
+    width: 100% !important;
+  }
+
   /* Map Container Layout */
   .map-wrapper {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    height: calc(100vh - 180px);
-    min-height: 600px;
+    gap: var(--space-3);
+    height: calc(100vh - var(--topbar-height) - 30px);
+    min-height: 640px;
+    position: relative;
   }
 
+  /* Command Header Toolbar */
   .map-toolbar {
     display: flex;
     justify-content: space-between;
@@ -21,299 +30,777 @@
     background: var(--color-surface);
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
-    border: 1px solid var(--color-border-subtle);
+    border: 1px solid var(--color-border);
     box-shadow: var(--shadow-sm);
+    gap: var(--space-3);
+    flex-wrap: wrap;
   }
 
+  .map-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .map-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* Search & Filter Inputs */
+  .map-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .map-search-input {
+    padding: 6px 12px 6px 32px;
+    font-size: var(--font-size-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    width: 220px;
+    transition: all 0.2s ease;
+  }
+
+  .map-search-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+    width: 260px;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  .map-search-icon {
+    position: absolute;
+    left: 10px;
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  /* Quick Summary Metric Pills */
+  .map-kpi-bar {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    background: var(--color-surface);
+    padding: 6px var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
+
+  .kpi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: var(--font-weight-medium);
+  }
+  .kpi-chip strong {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* Main Spatial Canvas Container */
   .map-layout-container {
     display: flex;
-    gap: var(--space-4);
+    gap: var(--space-3);
     flex: 1;
     min-height: 0;
-  }
-
-  /* The actual 2D Map Area */
-  .floor-plan {
-    flex: 1;
-    background-color: #f1f5f9; /* Light grid background */
-    background-image: 
-      linear-gradient(#e2e8f0 1px, transparent 1px),
-      linear-gradient(90deg, #e2e8f0 1px, transparent 1px);
-    background-size: 20px 20px;
-    border-radius: var(--radius-lg);
-    border: 2px solid var(--color-border);
     position: relative;
     overflow: hidden;
-    display: flex;
-    padding: 2rem;
-    gap: 2rem;
-    align-items: stretch;
-    justify-content: center;
   }
 
-  /* Dynamically generated rooms */
-  .map-room {
+  /* The 2D Floor Plan Canvas */
+  .floor-plan {
     flex: 1;
-    max-width: 400px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 3px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
+    background-color: #f8fafc;
+    background-image: 
+      radial-gradient(#cbd5e1 1.2px, transparent 1.2px),
+      linear-gradient(to right, rgba(226, 232, 240, 0.4) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(226, 232, 240, 0.4) 1px, transparent 1px);
+    background-size: 24px 24px, 120px 120px, 120px 120px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.02);
     position: relative;
-    box-shadow: var(--shadow-md);
+    overflow: auto;
     display: flex;
     flex-direction: column;
-    transition: border-color 0.3s ease;
+    padding: var(--space-4);
+    gap: var(--space-4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .map-room.active-room {
-    border-color: var(--color-primary);
-  }
-
-  .room-label {
+  /* Canvas Controls Overlay (Zoom, Center, Fullscreen) */
+  .canvas-controls-overlay {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: var(--color-text-muted);
-    opacity: 0.15;
-    pointer-events: none;
-    text-align: center;
-    width: 100%;
-    font-family: var(--font-display, inherit);
-    text-transform: uppercase;
+    bottom: var(--space-4);
+    right: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    padding: 4px;
+    z-index: 40;
   }
 
+  .canvas-ctrl-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .canvas-ctrl-btn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-primary);
+  }
+
+  /* Blueprint Grid of Rooms */
+  .rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: var(--space-4);
+    width: 100%;
+    align-items: stretch;
+    transition: transform 0.25s ease;
+    transform-origin: top left;
+  }
+
+  /* Individual Room Card Blueprint */
+  .map-room-card {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(6px);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm), 0 4px 12px rgba(15, 23, 42, 0.03);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 380px;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    overflow: hidden;
+  }
+
+  .map-room-card:hover {
+    border-color: var(--color-primary-border);
+    box-shadow: var(--shadow-md);
+  }
+
+  .map-room-card.has-alert {
+    border-color: var(--color-status-red);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+  }
+
+  /* Architectural Blueprint Room Header */
   .room-header {
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--color-border-subtle);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--color-bg);
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
-    z-index: 2;
+    background: #fcfdfe;
+    z-index: 10;
+  }
+
+  .room-title-area {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .room-name-text {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .room-meta-text {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: var(--font-weight-medium);
   }
 
   .room-occupancy-badge {
-    background: var(--color-primary);
-    color: white;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 12px;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary-border);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
   }
 
+  .room-occupancy-badge.danger {
+    background: var(--color-status-red-bg);
+    color: var(--color-status-red);
+    border-color: var(--color-status-red-border);
+  }
+
+  /* The Interactive Room Playground */
   .room-area {
     flex: 1;
     position: relative;
     overflow: hidden;
-    /* This is the playground for the dots */
+    background: radial-gradient(circle at center, rgba(37, 99, 235, 0.03) 0%, rgba(248, 250, 252, 0.4) 70%);
   }
 
-  /* Student Dot Representation */
-  .student-dot {
+  /* Architectural Watermark Label */
+  .room-watermark {
     position: absolute;
-    width: 18px;
-    height: 18px;
-    background-color: var(--color-primary);
-    border: 2px solid white;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: top 1.5s cubic-bezier(0.4, 0, 0.2, 1), left 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    z-index: 10;
-  }
-
-  .student-dot:hover {
-    transform: translate(-50%, -50%) scale(1.3);
-    z-index: 20;
-    background-color: var(--brand-green, #10b981);
-  }
-
-  .student-dot.restricted {
-    background-color: var(--color-status-red);
-  }
-
-  .student-dot.low-battery {
-    border-color: var(--color-status-yellow);
-  }
-
-  /* Tooltip on hover */
-  .student-dot::after {
-    content: attr(data-name);
-    position: absolute;
-    bottom: 100%;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%) translateY(-8px);
-    background: var(--color-text-primary);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    white-space: nowrap;
-    opacity: 0;
+    transform: translate(-50%, -50%);
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: #0f172a;
+    opacity: 0.04;
     pointer-events: none;
-    transition: opacity 0.2s;
-  }
-  .student-dot:hover::after {
-    opacity: 1;
+    text-align: center;
+    width: 90%;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
   }
 
-  /* AP Center Node */
+  /* Radar Distance Rings */
+  .radar-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px dashed rgba(37, 99, 235, 0.15);
+    pointer-events: none;
+  }
+  .radar-ring.ring-inner { width: 100px; height: 100px; }
+  .radar-ring.ring-middle { width: 200px; height: 200px; }
+  .radar-ring.ring-outer { width: 300px; height: 300px; border-style: solid; border-color: rgba(37, 99, 235, 0.08); }
+
+  /* Master AP Node in Room Center */
   .ap-node {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 24px;
-    height: 24px;
-    background: rgba(37, 99, 235, 0.1);
-    border: 2px dashed var(--color-primary);
-    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    background: #ffffff;
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1;
+    color: var(--color-primary);
+    z-index: 15;
+    cursor: default;
   }
 
-  /* Right Side Analytics Panel */
+  .ap-pulse {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-primary);
+    opacity: 0.6;
+    animation: ap-pulse-anim 2.5s infinite cubic-bezier(0.2, 0.6, 0.4, 1);
+    pointer-events: none;
+  }
+
+  @keyframes ap-pulse-anim {
+    0% { transform: scale(0.85); opacity: 0.8; }
+    50% { transform: scale(1.4); opacity: 0.2; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+  /* Transit / Roaming Zone Section */
+  .transit-corridor {
+    background: rgba(255, 255, 255, 0.85);
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
+    min-height: 120px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .transit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .transit-canvas {
+    flex: 1;
+    position: relative;
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    overflow-x: auto;
+    padding: var(--space-2) 0;
+  }
+
+  /* Student Dot / Avatar Marker */
+  .student-marker {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: white;
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ffffff;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.22);
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    user-select: none;
+    z-index: 20;
+    transition: top 0.9s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                left 0.9s cubic-bezier(0.34, 1.56, 0.64, 1),
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
+  }
+
+  .student-marker:hover {
+    transform: translate(-50%, -50%) scale(1.25);
+    z-index: 35;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.35);
+  }
+
+  .student-marker.selected {
+    transform: translate(-50%, -50%) scale(1.35);
+    z-index: 40;
+    box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.35), 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .student-marker.restricted {
+    background: var(--color-status-red);
+    animation: marker-alert-bounce 1.4s infinite ease-in-out;
+  }
+  .student-marker.restricted::before {
+    content: '';
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(220, 38, 38, 0.3);
+    animation: ap-pulse-anim 1.5s infinite;
+  }
+
+  .student-marker.low-battery {
+    border-color: var(--color-status-yellow);
+  }
+
+  @keyframes marker-alert-bounce {
+    0%, 100% { transform: translate(-50%, -50%) scale(1.15); }
+    50% { transform: translate(-50%, -50%) scale(1.35); }
+  }
+
+  /* Tooltip on Marker Hover */
+  .student-marker .marker-tooltip {
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    background: #0f172a;
+    color: #ffffff;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    box-shadow: var(--shadow-md);
+    z-index: 50;
+  }
+  .student-marker:hover .marker-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-2px);
+  }
+
+  /* Transit Inline Pill for roaming students */
+  .transit-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+  }
+  .transit-pill:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Right Side Inspector & Analytics Panel */
   .map-side-panel {
-    width: 320px;
+    width: 340px;
     background: var(--color-surface);
-    border: 1px solid var(--color-border-subtle);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-sm);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    overflow: hidden;
+  }
+
+  .map-side-panel.collapsed {
+    width: 0;
+    border-width: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .panel-header {
-    padding: var(--space-4);
+    padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--color-border-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fafcff;
   }
-  
+
   .panel-body {
     padding: var(--space-4);
     flex: 1;
     overflow-y: auto;
   }
 
-  /* Profile Card (Hidden by default) */
-  #selected-profile {
-    display: none;
-  }
-  #selected-profile.active {
-    display: block;
-  }
-  
+  /* Profile Avatar */
   .profile-avatar {
-    width: 64px;
-    height: 64px;
+    width: 68px;
+    height: 68px;
     border-radius: 50%;
-    background: var(--color-bg);
+    background: var(--color-primary-light);
+    border: 3px solid #ffffff;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-size: 1.6rem;
+    font-weight: 800;
     color: var(--color-primary);
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+
+  /* Telemetry Status Gauges */
+  .telemetry-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    font-size: var(--font-size-sm);
+  }
+  .telemetry-row:last-child {
+    border-bottom: none;
+  }
+  .telemetry-label {
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .telemetry-value {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+
+  /* Signal Strength Meter */
+  .signal-meter {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+  }
+  .signal-bar {
+    width: 3px;
+    background: #cbd5e1;
+    border-radius: 1px;
+  }
+  .signal-bar.bar-1 { height: 4px; }
+  .signal-bar.bar-2 { height: 7px; }
+  .signal-bar.bar-3 { height: 10px; }
+  .signal-bar.bar-4 { height: 14px; }
+  .signal-meter.active .signal-bar { background: var(--color-status-green); }
+
+  /* Empty State Indicator inside rooms */
+  .room-empty-state {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-weight: 500;
+    pointer-events: none;
+    text-align: center;
+  }
+
+  @media (max-width: 900px) {
+    .map-layout-container {
+      flex-direction: column;
+    }
+    .map-side-panel {
+      width: 100%;
+      max-height: 280px;
+    }
+    .rooms-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="page-container">
-  <div style="margin-bottom: var(--space-4);">
-    <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text-primary); font-family: var(--font-display, inherit); text-transform: uppercase; letter-spacing: -0.02em;">
-      Live 2D Campus Map
-    </h2>
-    <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 2px;">
-      Real-time spatial visualization and distance estimation based on RSSI confidence.
-    </p>
-  </div>
-
-  <div class="map-wrapper">
-    <div class="map-toolbar">
-      <div style="display: flex; align-items: center; gap: var(--space-3);">
+<div class="map-wrapper" id="main-map-app">
+  
+  <!-- Map Control & Command Toolbar -->
+  <div class="map-toolbar">
+    <div class="map-toolbar-left">
+      <div style="display: flex; align-items: center; gap: 8px;">
         <span class="status-pill online">
           <span class="status-dot"></span> Live Tracking Active
         </span>
-        <span style="font-size: var(--font-size-sm); color: var(--color-text-secondary);" id="last-updated-text">
-          Waiting for data...
+        <span style="font-size: var(--font-size-xs); color: var(--color-text-secondary);" id="last-updated-text">
+          Syncing radar...
         </span>
       </div>
-      <div>
-        <button class="btn btn-secondary" onclick="mapApp.fetchMapData()">
-          <svg style="width: 16px; height: 16px; margin-right: 6px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-          Force Refresh
+
+      <!-- Quick KPI Counter Strip -->
+      <div class="map-kpi-bar">
+        <span class="kpi-chip">
+          <span>Active:</span>
+          <strong id="kpi-total-students">0</strong>
+        </span>
+        <span style="color: var(--color-border);">|</span>
+        <span class="kpi-chip">
+          <span>Zones:</span>
+          <strong id="kpi-total-zones">0</strong>
+        </span>
+        <span style="color: var(--color-border);">|</span>
+        <span class="kpi-chip">
+          <span>Attention:</span>
+          <strong id="kpi-attention-count" style="color: var(--color-status-yellow);">0</strong>
+        </span>
+      </div>
+
+      <!-- Student Search Box -->
+      <div class="map-search-box">
+        <svg class="map-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+        <input 
+          type="text" 
+          id="student-search-input" 
+          class="map-search-input" 
+          placeholder="Find child on map..." 
+          oninput="mapApp.handleSearch(this.value)"
+        >
+      </div>
+    </div>
+
+    <div class="map-toolbar-right">
+      <!-- Force Refresh Button -->
+      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: var(--font-size-xs);" onclick="mapApp.fetchMapData()" title="Refresh telemetry">
+        <svg style="width: 14px; height: 14px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        Refresh
+      </button>
+
+      <!-- Toggle Inspector Panel -->
+      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: var(--font-size-xs);" id="toggle-panel-btn" onclick="mapApp.toggleSidePanel()" title="Toggle Side Panel">
+        <svg style="width: 14px; height: 14px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+        </svg>
+        <span id="panel-toggle-label">Inspector</span>
+      </button>
+
+      <!-- Fullscreen Toggle Button -->
+      <button class="btn btn-secondary" style="padding: 6px 8px;" onclick="mapApp.toggleFullscreen()" title="Fullscreen Mode">
+        <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0 0l-5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Interactive 2D Layout Container -->
+  <div class="map-layout-container">
+    
+    <!-- Floor Plan 2D Canvas -->
+    <div class="floor-plan" id="floor-plan-container">
+      
+      <!-- Rooms Grid (Rendered dynamically) -->
+      <div class="rooms-grid" id="rooms-grid-container">
+        <!-- Room cards with radar circles & students injected here -->
+      </div>
+
+      <!-- Transit & Roaming Corridor (For children in hallway or low RSSI) -->
+      <div class="transit-corridor" id="transit-corridor-box">
+        <div class="transit-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <svg style="width: 16px; height: 16px; color: var(--color-text-secondary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+            </svg>
+            <span style="font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-secondary);">
+              Transit Corridor & Roaming Area
+            </span>
+          </div>
+          <span style="font-size: 11px; color: var(--color-text-muted);" id="transit-count-label">0 Students in Transit</span>
+        </div>
+        <div class="transit-canvas" id="transit-canvas-area">
+          <span style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-style: italic;">
+            All students are currently located inside active classrooms.
+          </span>
+        </div>
+      </div>
+
+      <!-- Canvas Zoom / Center Floating Controls -->
+      <div class="canvas-controls-overlay">
+        <button class="canvas-ctrl-btn" onclick="mapApp.zoomIn()" title="Zoom In">
+          <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+        </button>
+        <button class="canvas-ctrl-btn" onclick="mapApp.zoomOut()" title="Zoom Out">
+          <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6"></path></svg>
+        </button>
+        <button class="canvas-ctrl-btn" onclick="mapApp.resetZoom()" title="Reset View">
+          <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
         </button>
       </div>
+
     </div>
 
-    <div class="map-layout-container">
-      <!-- 2D Floor Plan -->
-      <div class="floor-plan" id="floor-plan-container">
-        <div id="rooms-layer" style="display: flex; gap: 2rem; width: 100%; height: 100%;">
-          <!-- Rooms injected here -->
+    <!-- Inspector & Live Analytics Panel -->
+    <aside class="map-side-panel" id="map-side-panel">
+      
+      <!-- Mode 1: Campus General Overview (Default) -->
+      <div id="general-overview-view" style="display: block; height: 100%; display: flex; flex-direction: column;">
+        <div class="panel-header">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <svg style="width: 16px; height: 16px; color: var(--color-primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            <h3 style="margin: 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold);">Zone Occupancy</h3>
+          </div>
+          <span style="font-size: 11px; color: var(--color-text-muted);" id="overview-zone-count">0 Rooms</span>
         </div>
-        <div id="students-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
-          <!-- Students injected here (pointer-events auto on the dots themselves) -->
+        <div class="panel-body" id="overview-zones-list">
+          <!-- Dynamic zone breakdown items injected here -->
         </div>
       </div>
 
-      <!-- Analytics & Profile Panel -->
-      <aside class="map-side-panel">
-        
-        <!-- Global Analytics (Shown when no student is selected) -->
-        <div id="global-analytics" style="display: block;">
-          <div class="panel-header">
-            <h3 style="margin: 0; font-size: 1rem; font-weight: 600;">Zone Analytics</h3>
-          </div>
-          <div class="panel-body" id="analytics-body">
-            <!-- Stats injected here -->
-          </div>
+      <!-- Mode 2: Student Focus Inspector (Shown on clicking a child) -->
+      <div id="student-inspector-view" style="display: none; height: 100%; flex-direction: column;">
+        <div class="panel-header">
+          <h3 style="margin: 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); display: flex; align-items: center; gap: 6px;">
+            <span class="status-dot" style="background: var(--color-primary);"></span> Student Inspector
+          </h3>
+          <button class="btn btn-secondary" style="padding: 4px 6px; min-height: 0;" onclick="mapApp.clearSelection()" title="Close Inspector">
+            <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
         </div>
-
-        <!-- Student Profile Card (Shown when a dot is clicked) -->
-        <div id="selected-profile" class="active" style="display: none;">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1rem; font-weight: 600;">Student Focus</h3>
-            <button class="btn btn-secondary" style="padding: 4px; min-height: 0;" onclick="mapApp.clearSelection()">
-              <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+        
+        <div class="panel-body">
+          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: var(--space-4);">
+            <div class="profile-avatar" id="sp-avatar">--</div>
+            <h4 id="sp-name" style="margin: 0; font-size: 1.15rem; font-weight: var(--font-weight-bold); color: var(--color-text-primary);">Student Name</h4>
+            <p id="sp-class" style="margin: 3px 0 0 0; font-size: var(--font-size-xs); color: var(--color-text-secondary); font-weight: 500;">Class: --</p>
+            <div style="margin-top: 6px;" id="sp-status-badge">
+              <span class="status-pill online"><span class="status-dot"></span> Authorized In Zone</span>
+            </div>
           </div>
-          <div class="panel-body">
-            <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: var(--space-4);">
-              <div class="profile-avatar" id="sp-avatar">--</div>
-              <h4 id="sp-name" style="margin: 0; font-size: 1.1rem; font-weight: 700;">Student Name</h4>
-              <p id="sp-class" style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--color-text-secondary);">Class</p>
+
+          <!-- Telemetry Specs Box -->
+          <div style="background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-4);">
+            <div class="telemetry-row">
+              <span class="telemetry-label">
+                <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                Current Zone
+              </span>
+              <span class="telemetry-value" id="sp-zone">--</span>
             </div>
             
-            <div style="background: var(--color-bg); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-4);">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-size: 0.8rem; color: var(--color-text-secondary);">Current Zone</span>
-                <span id="sp-zone" style="font-size: 0.85rem; font-weight: 600;">Loading...</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-size: 0.8rem; color: var(--color-text-secondary);">Distance Estimate</span>
-                <span id="sp-distance" style="font-size: 0.85rem; font-weight: 600;">~m</span>
-              </div>
-              <div style="display: flex; justify-content: space-between;">
-                <span style="font-size: 0.8rem; color: var(--color-text-secondary);">Wearable Battery</span>
-                <span id="sp-battery" style="font-size: 0.85rem; font-weight: 600;">--%</span>
-              </div>
+            <div class="telemetry-row">
+              <span class="telemetry-label">
+                <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>
+                Est. Distance
+              </span>
+              <span class="telemetry-value" id="sp-distance">--</span>
             </div>
 
-            <a id="sp-link" href="#" class="btn btn-primary" style="width: 100%; justify-content: center;">View Full Profile</a>
-          </div>
-        </div>
+            <div class="telemetry-row">
+              <span class="telemetry-label">
+                <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Wearable Battery
+              </span>
+              <span class="telemetry-value" id="sp-battery">--%</span>
+            </div>
 
-      </aside>
-    </div>
+            <div class="telemetry-row">
+              <span class="telemetry-label">
+                <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                Device Code
+              </span>
+              <span class="telemetry-value" id="sp-device">--</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <a id="sp-link" href="#" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: var(--font-size-sm); gap: 6px;">
+            <span>View Full Student Profile</span>
+            <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </a>
+        </div>
+      </div>
+
+    </aside>
+
   </div>
 </div>
 {% endblock %}

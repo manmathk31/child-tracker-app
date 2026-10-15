@@ -1,19 +1,32 @@
 import logging
 import uuid
-from typing import Any
-from datetime import datetime, UTC
-from sqlalchemy import select
+from dataclasses import dataclass
+from datetime import UTC, datetime
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from app.models.device import Device, DeviceType, DeviceStatus
+
+from app.models.alert import AlertSeverity, AlertType
+from app.models.device import Device, DeviceStatus, DeviceType
 from app.models.location_record import LocationRecord
 from app.models.zone import Zone
-from app.models.alert import AlertType, AlertSeverity
 from app.schemas.location import MasterTelemetryIngest, TelemetryIngestResponse
 from app.services import alert_service
-
+from app.services.settings_service import get_or_create_alert_settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class StudentLiveLocationDTO:
+    """Strongly-typed live location snapshot for a student."""
+
+    current_zone_name: str | None
+    confidence: float
+    device_code: str | None
+    battery_percent: int | None
+
 
 def _get_sta_mac_from_ap(ap_mac: str) -> str:
     """Convert an ESP32 SoftAP MAC (+1) back to its base Station MAC."""
@@ -28,72 +41,131 @@ def _get_sta_mac_from_ap(ap_mac: str) -> str:
         pass
     return ap_mac
 
-async def process_telemetry_scan(db: AsyncSession, payload: MasterTelemetryIngest) -> TelemetryIngestResponse:
-    """Process a telemetry ping from a Master ESP scanning multiple Slave ESPs."""
+
+async def process_telemetry_scan(
+    db: AsyncSession, payload: MasterTelemetryIngest
+) -> TelemetryIngestResponse:
+    """Process a telemetry ping from a Master ESP scanning multiple Slave ESPs.
+
+    Includes multi-scanner arbitration with hysteresis to prevent oscillation
+    when adjacent scanners detect bleed-through signals from nearby rooms.
+    """
+    now_utc = datetime.now(UTC)
+
     # 1. Look up the Master Scanner
-    stmt = select(Device).where(Device.mac_address == payload.scanner_mac, Device.type == DeviceType.SCANNER)
+    stmt = select(Device).where(
+        Device.mac_address == payload.scanner_mac, Device.type == DeviceType.SCANNER
+    )
     result = await db.execute(stmt)
     scanner = result.scalar_one_or_none()
 
     if not scanner:
-        logger.warning(f"Ignored telemetry from unknown or inactive scanner MAC: {payload.scanner_mac}")
+        logger.warning(
+            "Ignored telemetry from unknown or inactive scanner MAC: %s",
+            payload.scanner_mac,
+        )
         return TelemetryIngestResponse(
             status="error",
             scanner_mac=payload.scanner_mac,
             processed_tags=0,
-            server_time=datetime.now(UTC)
+            server_time=now_utc,
         )
-    
+
     # Update scanner last seen
-    scanner.last_seen_at = datetime.now(UTC)
+    scanner.last_seen_at = now_utc
     scanner.status = DeviceStatus.ONLINE
 
     zone_id = scanner.assigned_zone_id
     if not zone_id:
-        logger.warning(f"Scanner {scanner.device_code} has no assigned zone. Skipping tags.")
+        logger.warning(
+            "Scanner %s has no assigned zone. Skipping tags.", scanner.device_code
+        )
         await db.commit()
         return TelemetryIngestResponse(
             status="no_zone",
             scanner_mac=payload.scanner_mac,
             processed_tags=0,
-            server_time=datetime.now(UTC)
+            server_time=now_utc,
         )
 
     # 2. Process each Tag
     processed_count = 0
     updated_student_ids = set()
+
     for tag_obs in payload.tags:
         stmt_tag = select(Device).where(
-            (Device.mac_address == tag_obs.mac) | 
-            (Device.mac_address == _get_sta_mac_from_ap(tag_obs.mac)), 
-            Device.type == DeviceType.WEARABLE
+            (Device.mac_address == tag_obs.mac)
+            | (Device.mac_address == _get_sta_mac_from_ap(tag_obs.mac)),
+            Device.type == DeviceType.WEARABLE,
         )
         res_tag = await db.execute(stmt_tag)
         tag_device = res_tag.scalars().first()
 
         if tag_device:
-            tag_device.last_seen_at = datetime.now(UTC)
+            tag_device.last_seen_at = now_utc
             tag_device.status = DeviceStatus.ONLINE
             if tag_obs.battery is not None:
                 tag_device.battery_percent = tag_obs.battery
 
             # Create location record if assigned to a student
             if tag_device.student_id:
-                # We use RSSI to derive a dummy 'confidence'. For now, raw rssi is enough.
-                confidence = max(0.0, min(1.0, (tag_obs.rssi + 100) / 100.0))
-                
-                record = LocationRecord(
-                    student_id=tag_device.student_id,
-                    device_id=tag_device.id,
-                    zone_id=zone_id,
-                    confidence=confidence,
-                    raw_scan={"scanner": payload.scanner_mac, "rssi": tag_obs.rssi}
-                )
-                db.add(record)
-                processed_count += 1
-                updated_student_ids.add(tag_device.student_id)
+                # Calibrated RSSI-to-confidence calculation:
+                # -30 dBm or above -> ~1.00 (immediate proximity to scanner)
+                # -50 dBm -> ~0.75 (good in-room signal)
+                # -65 dBm -> ~0.50 (edge of room)
+                # -80 dBm -> ~0.25 (weak/penetrating signal)
+                # -95 dBm -> ~0.05 (noise floor)
+                confidence = max(0.05, min(1.0, (tag_obs.rssi + 95.0) / 65.0))
 
-                # Handle SOS
+                # Multi-scanner arbitration:
+                # Check the student's recent location record to prevent room-hopping flickering.
+                stmt_latest = (
+                    select(LocationRecord)
+                    .where(LocationRecord.student_id == tag_device.student_id)
+                    .order_by(LocationRecord.recorded_at.desc())
+                    .limit(1)
+                )
+                res_latest = await db.execute(stmt_latest)
+                latest_record = res_latest.scalar_one_or_none()
+
+                should_record = True
+                if latest_record:
+                    rec_time = latest_record.recorded_at
+                    if rec_time.tzinfo is None:
+                        rec_time = rec_time.replace(tzinfo=UTC)
+                    age_seconds = (now_utc - rec_time).total_seconds()
+
+                    # If student was confirmed in another zone within the last 10 seconds:
+                    # Only switch zones if incoming signal is not significantly weaker.
+                    if (
+                        latest_record.zone_id != zone_id
+                        and age_seconds < 10.0
+                        and confidence < (latest_record.confidence - 0.12)
+                    ):
+                        should_record = False
+                        logger.debug(
+                            "Arbitration: ignored bleed-through scan from %s for student %s "
+                            "(conf=%.2f < active=%.2f, age=%.1fs)",
+                            payload.scanner_mac,
+                            tag_device.student_id,
+                            confidence,
+                            latest_record.confidence,
+                            age_seconds,
+                        )
+
+                if should_record:
+                    record = LocationRecord(
+                        student_id=tag_device.student_id,
+                        device_id=tag_device.id,
+                        zone_id=zone_id,
+                        confidence=confidence,
+                        raw_scan={"scanner": payload.scanner_mac, "rssi": tag_obs.rssi},
+                    )
+                    db.add(record)
+                    processed_count += 1
+                    updated_student_ids.add(tag_device.student_id)
+
+                # Handle SOS alerts immediately regardless of arbitration
                 if tag_obs.sos:
                     await alert_service.create_alert_idempotent(
                         db,
@@ -109,7 +181,6 @@ async def process_telemetry_scan(db: AsyncSession, payload: MasterTelemetryInges
 
     # Auto-prune: Keep only the last 30 records per updated student
     if updated_student_ids:
-        from sqlalchemy import delete
         for sid in updated_student_ids:
             stmt_prune = (
                 select(LocationRecord.id)
@@ -123,17 +194,25 @@ async def process_telemetry_scan(db: AsyncSession, payload: MasterTelemetryInges
             if ids_to_delete:
                 await db.execute(delete(LocationRecord).where(LocationRecord.id.in_(ids_to_delete)))
         await db.commit()
-    
-    logger.info(f"Scanner {payload.scanner_mac} in zone {zone_id} saw {processed_count} valid tags.")
+
+    logger.info(
+        "Scanner %s in zone %s processed %d valid tags.",
+        payload.scanner_mac,
+        zone_id,
+        processed_count,
+    )
     return TelemetryIngestResponse(
         status="ack",
         scanner_mac=payload.scanner_mac,
         processed_tags=processed_count,
-        server_time=datetime.utcnow()
+        server_time=now_utc,
     )
 
-async def get_student_location_history(db: AsyncSession, student_id: uuid.UUID, limit: int = 50) -> list:
-    """Get location history."""
+
+async def get_student_location_history(
+    db: AsyncSession, student_id: uuid.UUID, limit: int = 50
+) -> list[LocationRecord]:
+    """Get location history breadcrumbs for a student."""
     stmt = (
         select(LocationRecord)
         .options(selectinload(LocationRecord.zone))
@@ -142,10 +221,13 @@ async def get_student_location_history(db: AsyncSession, student_id: uuid.UUID, 
         .limit(limit)
     )
     result = await db.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
-async def get_student_live_location(db: AsyncSession, student_id: uuid.UUID) -> Any:
-    """Get live location."""
+
+async def get_student_live_location(
+    db: AsyncSession, student_id: uuid.UUID
+) -> StudentLiveLocationDTO:
+    """Get real-time resolved location and device status for a student."""
     stmt = (
         select(LocationRecord, Zone.name)
         .outerjoin(Zone, LocationRecord.zone_id == Zone.id)
@@ -158,25 +240,26 @@ async def get_student_live_location(db: AsyncSession, student_id: uuid.UUID) -> 
     loc = row[0] if row else None
     zone_name = row[1] if row else None
 
-    stmt_device = select(Device).where(Device.student_id == student_id, Device.type == DeviceType.WEARABLE)
+    stmt_device = select(Device).where(
+        Device.student_id == student_id, Device.type == DeviceType.WEARABLE
+    )
     res_device = await db.execute(stmt_device)
     device = res_device.scalars().first()
 
     if not loc:
-        return type('obj', (object,), {
-            'current_zone_name': None,
-            'confidence': 0.0,
-            'device_code': device.device_code if device else None,
-            'battery_percent': device.battery_percent if device else None
-        })
-    
-    alert_settings = await alert_service.settings_service.get_or_create_alert_settings(db)
-    
+        return StudentLiveLocationDTO(
+            current_zone_name=None,
+            confidence=0.0,
+            device_code=device.device_code if device else None,
+            battery_percent=device.battery_percent if device else None,
+        )
+
+    alert_settings = await get_or_create_alert_settings(db)
     is_low_confidence = loc.confidence < alert_settings.min_localization_confidence
 
-    return type('obj', (object,), {
-        'current_zone_name': None if is_low_confidence else zone_name,
-        'confidence': loc.confidence,
-        'device_code': device.device_code if device else None,
-        'battery_percent': device.battery_percent if device else None
-    })
+    return StudentLiveLocationDTO(
+        current_zone_name=None if is_low_confidence else zone_name,
+        confidence=loc.confidence,
+        device_code=device.device_code if device else None,
+        battery_percent=device.battery_percent if device else None,
+    )
